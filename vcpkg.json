@@ -1,0 +1,12 @@
+{
+  "name": "ecommerce-platform",
+  "version-string": "0.1.0",
+  "dependencies": [
+    "libpq",
+    "libpqxx",
+    "librdkafka",
+    "modern-cpp-kafka",
+    "nlohmann-json"
+  ],
+  "builtin-baseline": "6bc1613f18f850c60d906575296f982c6dfcc9e0"
+}
