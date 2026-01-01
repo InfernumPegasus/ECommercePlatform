@@ -17,6 +17,7 @@ target_include_directories(CreateOrdersService
 target_link_libraries(CreateOrdersService
     PUBLIC
         dto
+        http
         platform_deps
         Threads::Threads
 )
