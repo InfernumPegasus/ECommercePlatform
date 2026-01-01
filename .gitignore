@@ -57,4 +57,4 @@ cmake-build-release
 build/*
 
 # .env
-*.env
+.env
