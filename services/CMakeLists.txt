@@ -1,3 +1,4 @@
 # services/CMakeLists.txt
 
-add_subdirectory(OrderService)
+add_subdirectory(CreateOrdersService)
+add_subdirectory(ProcessOrdersService)

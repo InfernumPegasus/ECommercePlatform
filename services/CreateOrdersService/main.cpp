@@ -9,7 +9,7 @@
 #include <thread>
 
 #include "DbMapping.hpp"
-#include "OrderService.hpp"
+#include "CreateOrdersService.hpp"
 #include "User.hpp"
 #include "UserProfile.hpp"
 
@@ -138,7 +138,7 @@ void CalculateOrderPrice(pqxx::work& work) {
   std::println(std::cout, "printing all prices:");
 
   for (auto r : rows) {
-    const OrderPrice price = MapRowTo<OrderPrice>(r);
+    const auto price = MapRowTo<OrderPrice>(r);
 
     std::println(std::cout, "{} = {}", price.id, price.total);
   }
@@ -152,7 +152,7 @@ void GetAllUsers(pqxx::work& work) {
   std::println(std::cout, "printing all users:");
 
   for (auto r : rows) {
-    const User user = MapRowTo<User>(r);
+    const auto user = MapRowTo<User>(r);
 
     std::println(std::cout, "user {}: {}, created_at {}, updated_at {}", user.id,
                  user.status, user.created_at, user.updated_at);
@@ -167,29 +167,45 @@ void GetAllUserProfiles(pqxx::work& work) {
   std::println(std::cout, "printing all user profiles:");
 
   for (auto r : rows) {
-    const UserProfile user = MapRowTo<UserProfile>(r);
+    const auto user = MapRowTo<UserProfile>(r);
 
     std::println(std::cout, "user {}: {}", user.user_id,
                  user.display_name.value_or("NULL"));
   }
 }
 
-int main(int argc, char** argv) {
+int main() {
   try {
-    const auto connectionString =
-        FormConnectionString("ecommerce", "ecommerce", "ecommerce", "localhost", 5432);
-    pqxx::connection conn(connectionString);
-    pqxx::work work{conn};
+    auto const address = net::ip::make_address("0.0.0.0");
+    unsigned short port = 1234;
 
-    std::cout << "DB version: " << GetDbVersion(work) << std::endl;
+    net::io_context ioc{1};
 
-    CalculateOrderPrice(work);
-    GetAllUsers(work);
-    GetAllUserProfiles(work);
+    auto listener = std::make_shared<Listener>(ioc, tcp::endpoint{address, port});
+
+    ioc.run();
   } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << std::endl;
-    return 1;
   }
-
-  return 0;
 }
+
+
+// int main(int argc, char** argv) {
+//   try {
+//     const auto connectionString =
+//         FormConnectionString("ecommerce", "ecommerce", "ecommerce", "localhost", 5432);
+//     pqxx::connection conn(connectionString);
+//     pqxx::work work{conn};
+
+//     std::cout << "DB version: " << GetDbVersion(work) << std::endl;
+
+//     CalculateOrderPrice(work);
+//     GetAllUsers(work);
+//     GetAllUserProfiles(work);
+//   } catch (const std::exception& e) {
+//     std::cerr << "Error: " << e.what() << std::endl;
+//     return 1;
+//   }
+
+//   return 0;
+// }
