@@ -61,6 +61,10 @@ int main() {
 
     Router router;
 
+    OrdersController orders;
+    orders.register_routes(router);
+    orders.print_available_routes();
+
     router.add(http::verb::get, "/users", [&work](const Request& req) {
       nlohmann::json j;
       GetAllUsers(work, j);

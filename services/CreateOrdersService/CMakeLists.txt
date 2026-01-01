@@ -6,6 +6,7 @@ find_package(Threads REQUIRED)
 
 add_executable(CreateOrdersService
     src/CreateOrdersService.cpp
+    src/OrdersController.cpp
     main.cpp
 )
 
