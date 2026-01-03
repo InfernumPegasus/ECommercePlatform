@@ -7,16 +7,16 @@
 
 class OrdersController : public IController<OrdersController> {
  public:
-  static constexpr std::string_view base_path() { return "/orders"; }
+  static constexpr std::string_view BasePath() { return "/orders"; }
 
-  static constexpr std::array<RouteDesc, 4> routes() {
+  // TODO add constexpr map
+  static constexpr std::array<RouteDesc, 3> Routes() {
     return {{{http::verb::get, "/"},
              {http::verb::post, "/"},
-             {http::verb::get, "/{id}"},
              {http::verb::get, "/exactly_42"}}};
   }
 
-  Response dispatch(const RouteDesc& route, const Request& req);
+  Response Dispatch(const RouteDesc& route, const Request& req);
 
  private:
   Response list(const Request& req);

@@ -6,7 +6,8 @@
     "libpqxx",
     "librdkafka",
     "modern-cpp-kafka",
-    "nlohmann-json"
+    "nlohmann-json",
+    "boost-url"
   ],
   "builtin-baseline": "6bc1613f18f850c60d906575296f982c6dfcc9e0"
 }

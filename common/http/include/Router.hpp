@@ -7,9 +7,9 @@
 
 class Router {
  public:
-  void add(http::verb method, std::string path, Handler handler);
+  void AddRoute(http::verb method, std::string_view path, Handler handler);
 
-  Response route(const Request& req) const;
+  Response Route(const Request& req) const;
 
  private:
   using Key = std::pair<http::verb, std::string>;

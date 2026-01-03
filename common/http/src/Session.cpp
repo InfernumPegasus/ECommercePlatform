@@ -3,19 +3,19 @@
 Session::Session(tcp::socket socket, const Router& router)
     : socket_(std::move(socket)), router_(router) {}
 
-void Session::run() { do_read(); }
+void Session::Run() { DoRead(); }
 
-void Session::do_read() {
+void Session::DoRead() {
   auto self = shared_from_this();
   http::async_read(socket_, buffer_, req_,
                    [this, self](boost::beast::error_code ec, std::size_t) {
                      if (!ec) {
-                       do_write(router_.route(req_));
+                       DoWrite(router_.Route(req_));
                      }
                    });
 }
 
-void Session::do_write(Response res) {
+void Session::DoWrite(Response res) {
   auto self = shared_from_this();
   auto sp = std::make_shared<Response>(std::move(res));
 

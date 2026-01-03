@@ -13,12 +13,12 @@ class Session : public std::enable_shared_from_this<Session> {
  public:
   Session(tcp::socket socket, const Router& router);
 
-  void run();
+  void Run();
 
  private:
-  void do_read();
-  
-  void do_write(Response res);
+  void DoRead();
+
+  void DoWrite(Response res);
 
   tcp::socket socket_;
   boost::beast::flat_buffer buffer_;

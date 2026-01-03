@@ -3,6 +3,7 @@
 project(CreateOrdersService)
 
 find_package(Threads REQUIRED)
+find_package(Boost REQUIRED COMPONENTS url)
 
 add_executable(CreateOrdersService
     src/CreateOrdersService.cpp
@@ -20,5 +21,6 @@ target_link_libraries(CreateOrdersService
         dto
         http
         platform_deps
-        Threads::Threads
+#        Threads::Threads
+        Boost::url
 )

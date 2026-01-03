@@ -1,6 +1,6 @@
 #include "HttpHelpers.hpp"
 
-Response json_response(const Request& req, http::status status,
+Response JsonResponse(const Request& req, http::status status,
                        const nlohmann::json& body) {
   Response res{status, req.version()};
   res.set(http::field::content_type, "application/json");

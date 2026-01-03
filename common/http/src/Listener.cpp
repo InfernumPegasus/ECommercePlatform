@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-Listener::Listener(boost::asio::io_context& ioc, tcp::endpoint endpoint,
+Listener::Listener(boost::asio::io_context& ioc, const tcp::endpoint& endpoint,
                    const Router& router)
     : ioc_(ioc), acceptor_(boost::asio::make_strand(ioc)), router_(router) {
   boost::beast::error_code ec;
@@ -12,15 +12,15 @@ Listener::Listener(boost::asio::io_context& ioc, tcp::endpoint endpoint,
   acceptor_.bind(endpoint, ec);
   acceptor_.listen(boost::asio::socket_base::max_listen_connections, ec);
 
-  do_accept();
+  DoAccept();
 }
 
-void Listener::do_accept() {
+void Listener::DoAccept() {
   acceptor_.async_accept(boost::asio::make_strand(ioc_),
-                         [this](boost::beast::error_code ec, tcp::socket socket) {
+                         [this](const boost::beast::error_code& ec, tcp::socket socket) {
                            if (!ec) {
-                             std::make_shared<Session>(std::move(socket), router_)->run();
+                             std::make_shared<Session>(std::move(socket), router_)->Run();
                            }
-                           do_accept();
+                           DoAccept();
                          });
 }
