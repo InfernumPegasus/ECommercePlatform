@@ -2,32 +2,32 @@
 
 #include <iostream>
 
-#include "HttpTypes.hpp"
 #include "Router.hpp"
-
-// Fundamental and minimal route description
-struct RouteDesc {
-  http::verb method;
-  std::string_view path;
-};
 
 template <typename Derived>
 class IController {
  public:
-  void RegisterRoutes(Router& router) {
-    auto& self = static_cast<Derived&>(*this);
+  struct Route {
+    http::verb method;
+    std::string_view path;
+    Response (Derived::*handler)(const Request&) const;
+  };
 
-    for (const auto& desc : Derived::Routes()) {
-      router.AddRoute(
-          desc.method, std::string(Derived::BasePath()) + desc.path,
-          [&self, desc](const Request& req) { return self.Dispatch(desc, req); });
+  void RegisterRoutes(Router& router) {
+    const auto* instance = static_cast<const Derived*>(this);
+
+    for (const auto& r : Derived::Routes()) {
+      const std::string full_path =
+          std::string(Derived::BasePath()) + std::string(r.path);
+
+      router.AddRoute(r.method, full_path, r.handler, instance);
     }
   }
 
   void PrintAvailableRoutes() const {
     const auto& self = static_cast<const Derived&>(*this);
 
-    std::println(std::cout, "Controller routes:");
+    std::println(std::cout, "Controller for route '{}' routes:", Derived::BasePath());
     for (const auto& desc : Derived::Routes()) {
       std::println(std::cout, "route: method {}, path {}", http::to_string(desc.method),
                    desc.path);

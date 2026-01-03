@@ -1,11 +1,11 @@
 #include <boost/asio/io_context.hpp>
+#include <boost/url.hpp>
 #include <iostream>
 #include <pqxx/pqxx>
 #include <string>
 
 #include "CreateOrdersService.hpp"
 #include "DbMapping.hpp"
-#include "HttpHelpers.hpp"
 #include "Listener.hpp"
 #include "User.hpp"
 
@@ -35,9 +35,7 @@ void GetAllUsers(pqxx::work& work) {
 void GetAllUsers(pqxx::work& work, nlohmann::json& json) {
   static constexpr auto query = "SELECT * FROM \"Users\";";
 
-  const auto rows = work.exec(query).expect_columns(4);
-
-  for (auto r : rows) {
+  for (const auto rows = work.exec(query).expect_columns(4); auto r : rows) {
     const auto user = MapRowTo<User>(r);
     json["users"].push_back(user);
   }
@@ -54,30 +52,22 @@ int main() {
   try {
     const auto connectionString =
         FormConnectionString("ecommerce", "ecommerce", "ecommerce", "localhost", 5432);
-    pqxx::connection conn(connectionString);
-    pqxx::work work{conn};
+    // pqxx::connection conn(connectionString);
+    // pqxx::work work{conn};
 
     boost::asio::io_context ioc{1};
 
     Router router;
 
     OrdersController orders;
-    orders.register_routes(router);
-    orders.print_available_routes();
+    orders.RegisterRoutes(router);
+    orders.PrintAvailableRoutes();
 
-    router.add(http::verb::get, "/users", [&work](const Request& req) {
-      nlohmann::json j;
-      GetAllUsers(work, j);
+    tcp::endpoint endpoint{tcp::v4(), 1234};
+    auto listener = std::make_shared<Listener>(ioc, endpoint, router);
 
-      std::println(std::cout, "GetAllUsers result json:\n{}", j.dump());
-
-      return json_response(req, http::status::ok, j);
-    });
-
-    auto listener =
-        std::make_shared<Listener>(ioc, tcp::endpoint{tcp::v4(), 1234}, router);
-
-    std::cout << "Listening on http://localhost:1234\n";
+    std::println(std::cout, "Listening on http://{}:{}\n", endpoint.address().to_string(),
+                 endpoint.port());
     ioc.run();
   } catch (const std::exception& e) {
     std::cerr << "Fatal error: " << e.what() << "\n";

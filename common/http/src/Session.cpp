@@ -8,7 +8,7 @@ void Session::Run() { DoRead(); }
 void Session::DoRead() {
   auto self = shared_from_this();
   http::async_read(socket_, buffer_, req_,
-                   [this, self](boost::beast::error_code ec, std::size_t) {
+                   [this, self](const boost::beast::error_code& ec, std::size_t) {
                      if (!ec) {
                        DoWrite(router_.Route(req_));
                      }
