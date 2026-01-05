@@ -7,6 +7,7 @@ target_sources(http
         src/HttpHelpers.cpp
         src/Listener.cpp
         src/Router.cpp
+        src/RouteTrie.cpp
         src/Session.cpp
 )
 

@@ -2,7 +2,6 @@
 
 #include <boost/url.hpp>
 #include <iostream>
-#include <regex>
 
 Response Router::Route(const Request& req) const {
   const auto parsed = boost::urls::parse_origin_form(req.target());
@@ -18,41 +17,19 @@ Response Router::Route(const Request& req) const {
 
   // Отладочная информация
   std::cout << "Routing request: " << http::to_string(req.method()) << " " << path
-            << "\n";
+            << std::endl;
 
-  // Нормализуем путь
-  if (path.size() > 1 && path.ends_with('/')) {
-    path.pop_back();
-  }
+  auto [handler, params] = trie_.FindRoute(req.method(), path);
 
-  // Для корневого пути "/" оставляем как есть
-  if (path == "/") {
-    // Это уже нормализованный корневой путь
-  }
-
-  // Ищем подходящий маршрут
-  for (const auto& route : routes_) {
-    if (route.method != req.method()) {
-      continue;
+  if (handler) {
+    std::cout << "  Route found with " << params.size() << " parameters" << std::endl;
+    for (const auto& [key, value] : params) {
+      std::cout << "    " << key << " = " << value << std::endl;
     }
-
-    std::cout << "  Trying pattern: " << route.pattern << "\n";
-    std::regex pattern(route.pattern);
-    std::smatch matches;
-
-    if (std::regex_match(path, matches, pattern)) {
-      std::cout << "  MATCH FOUND! Number of matches: " << matches.size() << "\n";
-      for (size_t i = 0; i < matches.size(); ++i) {
-        std::cout << "    Match[" << i << "]: " << matches[i].str() << "\n";
-      }
-      std::cout << "  Parameter names count: " << route.param_names.size() << "\n";
-
-      // Нашли совпадение, вызываем хендлер
-      return route.handler(req, matches);
-    }
+    return handler(req, params);
   }
 
-  std::cout << "  NO MATCH FOUND\n";
+  std::cout << "  Route not found" << std::endl;
 
   // Маршрут не найден
   Response res{http::status::not_found, req.version()};
@@ -60,4 +37,12 @@ Response Router::Route(const Request& req) const {
   res.body() = "Route not found";
   res.prepare_payload();
   return res;
+}
+
+void Router::PrintAllRoutes() const {
+  const auto routes = trie_.GetAllRoutes();
+  std::cout << "All registered routes:" << std::endl;
+  for (const auto& route : routes) {
+    std::cout << "  " << route << std::endl;
+  }
 }

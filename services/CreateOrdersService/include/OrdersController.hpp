@@ -11,18 +11,15 @@ class OrdersController : public IController<OrdersController> {
  public:
   static constexpr std::string_view BasePath() { return "/orders"; }
 
-  // Маршруты с параметрами
-  // Изменим порядок в RoutesWithParams():
-  static constexpr std::array<RouteWithParams, 6> RoutesWithParams() {
+  static constexpr std::array<RouteWithParams, 5> RoutesWithParams() {
     return {
-        {{http::verb::get, "/{order_id:\\d+}/name", &OrdersController::GetOrderName},
-         {http::verb::put, "/{order_id:\\d+}/name", &OrdersController::UpdateOrderName},
-         {http::verb::get, "/{order_id:\\d+}", &OrdersController::GetById},
+        {{http::verb::get, "/{order_id:\\d+}", &OrdersController::GetById},
          {http::verb::put, "/{order_id:\\d+}", &OrdersController::Update},
-         {http::verb::delete_, "/{order_id:\\d+}", &OrdersController::Delete}}};
+         {http::verb::delete_, "/{order_id:\\d+}", &OrdersController::Delete},
+         {http::verb::get, "/{order_id:\\d+}/name", &OrdersController::GetOrderName},
+         {http::verb::put, "/{order_id:\\d+}/name", &OrdersController::UpdateOrderName}}};
   };
 
-  // Простые маршруты (без параметров) - регистрируем ПЕРВЫМИ
   static constexpr std::array<SimpleRoute, 2> Routes() {
     return {{{http::verb::get, "", &OrdersController::List},
              {http::verb::post, "/remove_all", &OrdersController::RemoveAll}}};
