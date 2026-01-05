@@ -7,13 +7,7 @@
 template <typename Derived>
 class IController {
  public:
-  struct RouteWithParams {
-    http::verb method;
-    std::string_view path;
-    Response (Derived::*handler)(const RequestContext&) const;
-  };
-
-  struct SimpleRoute {
+  struct RouteDesc {
     http::verb method;
     std::string_view path;
     Response (Derived::*handler)(const RequestContext&) const;
@@ -21,21 +15,10 @@ class IController {
 
   void RegisterRoutes(Router& router) {
     const auto* instance = static_cast<const Derived*>(this);
-
-    if constexpr (requires { Derived::RoutesWithParams(); }) {
-      for (const auto& r : Derived::RoutesWithParams()) {
-        const std::string full_path =
-            std::string(Derived::BasePath()) + std::string(r.path);
-        router.AddRoute(r.method, full_path, r.handler, instance);
-      }
-    }
-
-    if constexpr (requires { Derived::Routes(); }) {
-      for (const auto& r : Derived::Routes()) {
-        const std::string full_path =
-            std::string(Derived::BasePath()) + std::string(r.path);
-        router.AddRoute(r.method, full_path, r.handler, instance);
-      }
+    for (const auto& r : Derived::Routes()) {
+      const std::string full_path =
+          std::string(Derived::BasePath()) + std::string(r.path);
+      router.AddRoute(r.method, full_path, r.handler, instance);
     }
   }
 
