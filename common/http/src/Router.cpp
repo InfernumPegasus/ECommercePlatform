@@ -16,9 +16,9 @@ Response Router::Route(const Request& req) const {
   std::cout << "Routing request: " << http::to_string(req.method()) << " "
             << parsed->path() << std::endl;
 
-  QueryParams query;
+  GeneralParams query;
   for (auto p : parsed->params()) {
-    query.values.emplace(p.key, p.value);
+    query.emplace(p.key, p.value);
   }
 
   auto [handler, path_params] = trie_.FindRoute(req.method(), parsed->path());
@@ -30,7 +30,7 @@ Response Router::Route(const Request& req) const {
     return res;
   }
 
-  RequestContext ctx{req, path_params, query};
+  RequestContext ctx(req, path_params, query);
   return handler(ctx);
 }
 

@@ -6,8 +6,11 @@
 #include "HttpHelpers.hpp"
 
 Response OrdersController::List(const RequestContext& ctx) const {
-  auto limit = ctx.query.get("limit").value_or("20");
-  auto offset = ctx.query.get("offset").value_or("0");
+  int limit = ctx.query.get<int>("limit").value_or(20);
+  int offset = ctx.query.get<int>("offset").value_or(0);
+  std::string_view offset_strv = ctx.query.get<std::string_view>("offset").value_or("0");
+  auto offset_str = ctx.query.get<std::string>("offset").value_or("0");
+  auto offset_bool = ctx.query.get<bool>("offset").value_or(false);
 
   nlohmann::json response = {
       {"limit", limit}, {"offset", offset}, {"orders", nlohmann::json::array()}};
@@ -20,36 +23,48 @@ Response OrdersController::RemoveAll(const RequestContext& ctx) const {
 }
 
 Response OrdersController::GetById(const RequestContext& ctx) const {
-  const auto& id = ctx.path_params.at("order_id");
+  int order_id = ctx.path.required<int>("order_id");
 
-  return JsonResponse(ctx.request, http::status::ok, {{"id", id}, {"status", "pending"}});
+  return JsonResponse(ctx.request, http::status::ok,
+                      {{"order_id", order_id}, {"status", "pending"}});
 }
 
 Response OrdersController::Update(const RequestContext& ctx) const {
-  const auto& id = ctx.path_params.at("order_id");
-  return JsonResponse(ctx.request, http::status::ok, {{"updated", true}, {"id", id}});
+  int order_id = ctx.path.required<int>("order_id");
+
+  return JsonResponse(ctx.request, http::status::ok,
+                      {{"updated", true}, {"order_id", order_id}});
 }
 
 Response OrdersController::Delete(const RequestContext& ctx) const {
-  const auto& id = ctx.path_params.at("order_id");
-  return JsonResponse(ctx.request, http::status::ok, {{"deleted", true}, {"id", id}});
+  int order_id = ctx.path.required<int>("order_id");
+
+  return JsonResponse(ctx.request, http::status::ok,
+                      {{"deleted", true}, {"order_id", order_id}});
 }
 
 Response OrdersController::GetOrderName(const RequestContext& ctx) const {
-  const auto& id = ctx.path_params.at("order_id");
+  int order_id = ctx.path.required<int>("order_id");
+
+  bool random = ctx.query.get<bool>("random").value_or(false);
+  std::cout << "random: " << std::boolalpha << random << std::endl;
+
   return JsonResponse(ctx.request, http::status::ok,
-                      {{"order_id", id}, {"name", "Order #" + id}});
+                      {{"order_id", order_id},
+                       {"name", "Order #" + std::to_string(order_id)},
+                       {"random", random}});
 }
 
 Response OrdersController::UpdateOrderName(const RequestContext& ctx) const {
-  const auto& id = ctx.path_params.at("order_id");
+  int order_id = ctx.path.required<int>("order_id");
 
   auto body = nlohmann::json::parse(ctx.request.body(), nullptr, false);
-  if (!body.is_object() || !body.contains("name")) {
+  if (!body.is_object() || !body.contains("name") || !body["name"].is_string()) {
     return JsonResponse(ctx.request, http::status::bad_request,
-                        {{"error", "name is required"}});
+                        {{"error", "field 'name' is required and must be string"}});
   }
 
-  return JsonResponse(ctx.request, http::status::ok,
-                      {{"updated", true}, {"order_id", id}, {"new_name", body["name"]}});
+  return JsonResponse(
+      ctx.request, http::status::ok,
+      {{"updated", true}, {"order_id", order_id}, {"new_name", body["name"]}});
 }

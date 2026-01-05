@@ -22,10 +22,10 @@ class RouteTrie {
 
   void AddRoute(http::verb method, std::string_view path, Handler handler);
 
-  std::pair<Handler, std::unordered_map<std::string, std::string>> FindRoute(
-      http::verb method, std::string_view path) const;
+  [[nodiscard]] std::pair<Handler, std::unordered_map<std::string, std::string>>
+  FindRoute(http::verb method, std::string_view path) const;
 
-  std::vector<std::string> GetAllRoutes() const;
+  [[nodiscard]] std::vector<std::string> GetAllRoutes() const;
 
  private:
   struct TrieNode;
@@ -53,6 +53,6 @@ class RouteTrie {
   void AddPath(const std::vector<std::string>& segments, http::verb method,
                Handler handler);
 
-  std::pair<const TrieNode*, std::unordered_map<std::string, std::string>> FindPath(
-      const std::vector<std::string>& segments) const;
+  [[nodiscard]] std::pair<const TrieNode*, std::unordered_map<std::string, std::string>>
+  FindPath(const std::vector<std::string>& segments) const;
 };
