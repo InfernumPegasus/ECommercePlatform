@@ -10,14 +10,13 @@ class IController {
   struct RouteWithParams {
     http::verb method;
     std::string_view path;
-    Response (Derived::*handler)(
-        const Request&, const std::unordered_map<std::string, std::string>&) const;
+    Response (Derived::*handler)(const RequestContext&) const;
   };
 
   struct SimpleRoute {
     http::verb method;
     std::string_view path;
-    Response (Derived::*handler)(const Request&) const;
+    Response (Derived::*handler)(const RequestContext&) const;
   };
 
   void RegisterRoutes(Router& router) {

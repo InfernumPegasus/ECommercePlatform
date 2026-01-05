@@ -15,16 +15,15 @@ namespace http = boost::beast::http;
 
 class RouteTrie {
  public:
-  using Handler = std::function<Response(
-      const Request&, const std::unordered_map<std::string, std::string>&)>;
+  using Handler = std::function<Response(const RequestContext&)>;
 
   RouteTrie();
   ~RouteTrie() = default;
 
-  void AddRoute(http::verb method, const std::string& path, Handler handler);
+  void AddRoute(http::verb method, std::string_view path, Handler handler);
 
   std::pair<Handler, std::unordered_map<std::string, std::string>> FindRoute(
-      http::verb method, const std::string& path) const;
+      http::verb method, std::string_view path) const;
 
   std::vector<std::string> GetAllRoutes() const;
 
@@ -45,8 +44,8 @@ class RouteTrie {
 
   std::unique_ptr<TrieNode> root_;
 
-  static std::string NormalizePath(std::string path);
-  static std::vector<std::string> SplitPath(const std::string& path);
+  static std::string NormalizePath(std::string_view path);
+  static std::vector<std::string> SplitPath(std::string_view path);
 
   static bool ParseParamSegment(const std::string& segment, std::string& name,
                                 std::optional<std::regex>& pattern);

@@ -5,110 +5,51 @@
 
 #include "HttpHelpers.hpp"
 
-Response OrdersController::List(const Request& req) const {
-  std::cout << "OrdersController::List called\n";
-  return JsonResponse(req, http::status::ok, {{"orders", nlohmann::json::array()}});
-}
-
-Response OrdersController::RemoveAll(const Request& req) const {
-  std::cout << "OrdersController::RemoveAll called\n";
-  return JsonResponse(req, http::status::ok, {{"removed", true}});
-}
-
-Response OrdersController::GetById(
-    const Request& req,
-    const std::unordered_map<std::string, std::string>& params) const {
-  std::cout << "OrdersController::GetById called\n";
-  auto it = params.find("order_id");
-  if (it == params.end()) {
-    std::cout << "ERROR: order_id parameter not found!\n";
-    return JsonResponse(req, http::status::bad_request,
-                        {{"error", "Missing order_id parameter"}});
-  }
-
-  nlohmann::json response = {{"order",
-                              {{"id", it->second},
-                               {"status", "pending"},
-                               {"created_at", "2024-01-01T00:00:00Z"}}}};
-
-  return JsonResponse(req, http::status::ok, response);
-}
-
-Response OrdersController::Update(
-    const Request& req,
-    const std::unordered_map<std::string, std::string>& params) const {
-  std::cout << "OrdersController::Update called\n";
-  auto it = params.find("order_id");
-  if (it == params.end()) {
-    return JsonResponse(req, http::status::bad_request,
-                        {{"error", "Missing order_id parameter"}});
-  }
+Response OrdersController::List(const RequestContext& ctx) const {
+  auto limit = ctx.query.get("limit").value_or("20");
+  auto offset = ctx.query.get("offset").value_or("0");
 
   nlohmann::json response = {
-      {"updated", true}, {"id", it->second}, {"message", "Order updated successfully"}};
+      {"limit", limit}, {"offset", offset}, {"orders", nlohmann::json::array()}};
 
-  return JsonResponse(req, http::status::ok, response);
+  return JsonResponse(ctx.request, http::status::ok, response);
 }
 
-Response OrdersController::Delete(
-    const Request& req,
-    const std::unordered_map<std::string, std::string>& params) const {
-  std::cout << "OrdersController::Delete called\n";
-  auto it = params.find("order_id");
-  if (it == params.end()) {
-    return JsonResponse(req, http::status::bad_request,
-                        {{"error", "Missing order_id parameter"}});
-  }
-
-  nlohmann::json response = {{"deleted", true}, {"id", it->second}};
-
-  return JsonResponse(req, http::status::ok, response);
+Response OrdersController::RemoveAll(const RequestContext& ctx) const {
+  return JsonResponse(ctx.request, http::status::ok, {{"removed", true}});
 }
 
-Response OrdersController::GetOrderName(
-    const Request& req,
-    const std::unordered_map<std::string, std::string>& params) const {
-  std::cout << "OrdersController::GetOrderName called\n";
-  auto it = params.find("order_id");
-  if (it == params.end()) {
-    return JsonResponse(req, http::status::bad_request,
-                        {{"error", "Missing order_id parameter"}});
-  }
+Response OrdersController::GetById(const RequestContext& ctx) const {
+  const auto& id = ctx.path_params.at("order_id");
 
-  nlohmann::json response = {{"order_id", it->second},
-                             {"name", "Order #" + it->second},
-                             {"customer_name", "John Doe"}};
-
-  return JsonResponse(req, http::status::ok, response);
+  return JsonResponse(ctx.request, http::status::ok, {{"id", id}, {"status", "pending"}});
 }
 
-Response OrdersController::UpdateOrderName(
-    const Request& req,
-    const std::unordered_map<std::string, std::string>& params) const {
-  std::cout << "OrdersController::UpdateOrderName called\n";
-  auto it = params.find("order_id");
-  if (it == params.end()) {
-    return JsonResponse(req, http::status::bad_request,
-                        {{"error", "Missing order_id parameter"}});
+Response OrdersController::Update(const RequestContext& ctx) const {
+  const auto& id = ctx.path_params.at("order_id");
+  return JsonResponse(ctx.request, http::status::ok, {{"updated", true}, {"id", id}});
+}
+
+Response OrdersController::Delete(const RequestContext& ctx) const {
+  const auto& id = ctx.path_params.at("order_id");
+  return JsonResponse(ctx.request, http::status::ok, {{"deleted", true}, {"id", id}});
+}
+
+Response OrdersController::GetOrderName(const RequestContext& ctx) const {
+  const auto& id = ctx.path_params.at("order_id");
+  return JsonResponse(ctx.request, http::status::ok,
+                      {{"order_id", id}, {"name", "Order #" + id}});
+}
+
+Response OrdersController::UpdateOrderName(const RequestContext& ctx) const {
+  const auto& id = ctx.path_params.at("order_id");
+
+  auto body = nlohmann::json::parse(ctx.request.body(), nullptr, false);
+  if (!body.is_object() || !body.contains("name")) {
+    return JsonResponse(ctx.request, http::status::bad_request,
+                        {{"error", "name is required"}});
   }
 
-  // Парсим тело запроса
-  nlohmann::json body;
-  try {
-    body = nlohmann::json::parse(req.body());
-  } catch (const nlohmann::json::exception& e) {
-    return JsonResponse(req, http::status::bad_request, {{"error", "Invalid JSON"}});
-  }
-
-  std::string new_name = body.value("name", "");
-  if (new_name.empty()) {
-    return JsonResponse(req, http::status::bad_request, {{"error", "Name is required"}});
-  }
-
-  nlohmann::json response = {{"updated", true},
-                             {"order_id", it->second},
-                             {"new_name", new_name},
-                             {"message", "Order name updated successfully"}};
-
-  return JsonResponse(req, http::status::ok, response);
+  return JsonResponse(ctx.request, http::status::ok,
+                      {{"updated", true}, {"order_id", id}, {"new_name", body["name"]}});
 }

@@ -5,18 +5,18 @@
 
 RouteTrie::RouteTrie() : root_(std::make_unique<TrieNode>()) {}
 
-std::string RouteTrie::NormalizePath(std::string path) {
+std::string RouteTrie::NormalizePath(std::string_view path) {
   if (!path.empty() && path.front() == '/') {
-    path.erase(path.begin());
+    path.remove_prefix(1);
   }
   if (!path.empty() && path.back() == '/') {
-    path.pop_back();
+    path.remove_suffix(1);
   }
 
-  return path;
+  return std::string(path);
 }
 
-std::vector<std::string> RouteTrie::SplitPath(const std::string& path) {
+std::vector<std::string> RouteTrie::SplitPath(const std::string_view path) {
   std::vector<std::string> segments;
   std::string current;
 
@@ -57,7 +57,7 @@ bool RouteTrie::ParseParamSegment(const std::string& segment, std::string& name,
   return true;
 }
 
-void RouteTrie::AddPath(const std::vector<std::string>& segments, http::verb method,
+void RouteTrie::AddPath(const std::vector<std::string>& segments, const http::verb method,
                         Handler handler) {
   TrieNode* current = root_.get();
 
@@ -88,7 +88,8 @@ void RouteTrie::AddPath(const std::vector<std::string>& segments, http::verb met
   current->handlers[method] = std::move(handler);
 }
 
-void RouteTrie::AddRoute(http::verb method, const std::string& path, Handler handler) {
+void RouteTrie::AddRoute(const http::verb method, const std::string_view path,
+                         Handler handler) {
   const auto normalized = NormalizePath(path);
   const auto segments = SplitPath(normalized);
 
@@ -131,7 +132,7 @@ RouteTrie::FindPath(const std::vector<std::string>& segments) const {
 }
 
 std::pair<RouteTrie::Handler, std::unordered_map<std::string, std::string>>
-RouteTrie::FindRoute(http::verb method, const std::string& path) const {
+RouteTrie::FindRoute(const http::verb method, const std::string_view path) const {
   const auto normalized = NormalizePath(path);
   const auto segments = SplitPath(normalized);
 
@@ -151,7 +152,7 @@ std::vector<std::string> RouteTrie::GetAllRoutes() const {
   std::vector<std::string> routes;
 
   std::function<void(const TrieNode*, std::string)> walk = [&](const TrieNode* node,
-                                                               std::string path) {
+                                                               const std::string& path) {
     for (const auto verb : node->handlers | std::views::keys) {
       routes.push_back(std::string(http::to_string(verb)) + " /" + path);
     }
