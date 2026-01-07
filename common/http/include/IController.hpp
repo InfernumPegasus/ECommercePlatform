@@ -7,7 +7,7 @@
 template <typename Derived>
 class IController {
  public:
-  struct RouteDesc {
+  struct RouteDescription {
     http::verb method;
     std::string_view path;
     Response (Derived::*handler)(const RequestContext&) const;
@@ -25,18 +25,9 @@ class IController {
   void PrintAvailableRoutes() const {
     std::println(std::cout, "Controller for route '{}' routes:", Derived::BasePath());
 
-    if constexpr (requires { Derived::RoutesWithParams(); }) {
-      for (const auto& desc : Derived::RoutesWithParams()) {
-        std::println(std::cout, "route: method {}, path {}", http::to_string(desc.method),
-                     desc.path);
-      }
-    }
-
-    if constexpr (requires { Derived::Routes(); }) {
-      for (const auto& desc : Derived::Routes()) {
-        std::println(std::cout, "route: method {}, path {}", http::to_string(desc.method),
-                     desc.path);
-      }
+    for (const auto& desc : Derived::Routes()) {
+      std::println(std::cout, "route: method {}, path {}", http::to_string(desc.method),
+                   desc.path);
     }
   }
 };
