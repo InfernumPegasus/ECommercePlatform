@@ -1,6 +1,6 @@
 # common/dto/CMakeLists.txt
 
-add_library(dto STATIC)
+add_library(dto OBJECT)
 
 target_sources(dto
     PRIVATE
@@ -14,5 +14,6 @@ target_include_directories(dto
 
 target_link_libraries(dto
     PUBLIC
-        platform_deps
+        platform_db
+        platform_json
 )

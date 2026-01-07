@@ -22,5 +22,23 @@ target_link_libraries(platform_deps
         nlohmann_json::nlohmann_json
 )
 
+add_library(platform_db INTERFACE)
+target_link_libraries(platform_db INTERFACE
+        PostgreSQL::PostgreSQL
+        libpqxx::pqxx
+)
+
+add_library(platform_kafka INTERFACE)
+target_link_libraries(platform_kafka INTERFACE
+        RdKafka::rdkafka
+        RdKafka::rdkafka++
+        unofficial::modern-cpp-kafka::modern-cpp-kafka
+)
+
+add_library(platform_json INTERFACE)
+target_link_libraries(platform_json INTERFACE
+        nlohmann_json::nlohmann_json
+)
+
 add_subdirectory(common)
 add_subdirectory(services)
