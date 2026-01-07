@@ -27,10 +27,8 @@ class TypedParams {
  public:
   explicit TypedParams(const GeneralParams& data) : data_(data) {}
 
-  // ---------- parse<T> ----------
-
   template <Numeric T>
-  static std::optional<T> parse(std::string_view value) {
+  static std::optional<T> TryParse(std::string_view value) {
     T result{};
 
     auto [ptr, ec] = std::from_chars(value.data(), value.data() + value.size(), result);
@@ -43,7 +41,12 @@ class TypedParams {
   }
 
   template <Bool T>
-  static std::optional<bool> parse(const std::string_view value) {
+  static std::optional<bool> TryParse(const std::string_view value) {
+    static constexpr size_t FALSE_LITERAL_LENGTH = 5;
+    if (value.empty() || value.size() > FALSE_LITERAL_LENGTH) {
+      return std::nullopt;
+    }
+
     std::string lower_value;
     lower_value.reserve(value.size());
     std::transform(value.begin(), value.end(), std::back_inserter(lower_value),
@@ -59,7 +62,7 @@ class TypedParams {
   }
 
   template <StringLike T>
-  static std::optional<T> parse(std::string_view value) {
+  static std::optional<T> TryParse(std::string_view value) {
     if constexpr (std::is_same_v<T, std::string>) {
       return std::string(value);
     } else {
@@ -67,20 +70,18 @@ class TypedParams {
     }
   }
 
-  // ---------- accessors ----------
-
   template <typename T>
-  std::optional<T> get(const std::string& key) const {
+  std::optional<T> TryGet(const std::string& key) const {
     const auto it = data_.find(key);
     if (it == data_.end()) {
       return std::nullopt;
     }
-    return parse<T>(it->second);
+    return TryParse<T>(it->second);
   }
 
   template <typename T>
-  T required(const std::string& key) const {
-    const auto value = get<T>(key);
+  T Required(const std::string& key) const {
+    const auto value = TryGet<T>(key);
     if (!value) {
       throw std::runtime_error("Missing or invalid parameter: " + key);
     }
