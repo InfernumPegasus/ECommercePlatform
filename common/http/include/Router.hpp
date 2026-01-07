@@ -15,7 +15,7 @@ class Router {
                    });
   }
 
-  Response Route(const Request& req) const;
+  [[nodiscard]] Response Route(const Request& req) const;
 
   // Для отладки
   void PrintAllRoutes() const;
