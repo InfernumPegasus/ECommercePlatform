@@ -17,6 +17,7 @@ target_sources(http
     PRIVATE
         src/HttpHelpers.cpp
         src/Listener.cpp
+        src/RequestContext.cpp
         src/Router.cpp
         src/RouteTrie.cpp
         src/Session.cpp
@@ -33,4 +34,5 @@ target_link_libraries(http
         Boost::url
         Boost::beast
         Boost::asio
+        parser
 )

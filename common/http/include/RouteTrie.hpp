@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "HttpTypes.hpp"
+#include "RequestContext.hpp"
 
 namespace http = boost::beast::http;
 
