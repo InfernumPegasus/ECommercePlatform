@@ -46,6 +46,7 @@ class RouteTrie {
   std::unique_ptr<TrieNode> root_;
 
   static std::string NormalizePath(std::string_view path);
+
   static std::vector<std::string> SplitPath(std::string_view path);
 
   static bool ParseParamSegment(const std::string& segment, std::string& name,
