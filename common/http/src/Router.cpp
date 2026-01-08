@@ -1,6 +1,7 @@
 #include "Router.hpp"
 
 #include <boost/url.hpp>
+#include <iostream>
 
 Response Router::Route(const Request& req) const {
   const auto parsed = boost::urls::parse_origin_form(req.target());
@@ -9,22 +10,34 @@ Response Router::Route(const Request& req) const {
     res.set(http::field::content_type, "text/plain");
     res.body() = "Invalid request target";
     res.prepare_payload();
-
     return res;
   }
 
-  const auto path = NormalizePath(parsed->path());
-  const auto key = std::make_pair(req.method(), path);
+  std::cout << "Routing request: " << http::to_string(req.method()) << " "
+            << parsed->path() << std::endl;
 
-  const auto it = routes_.find(key);
-  if (it == routes_.end()) {
+  GeneralParams query;
+  for (auto p : parsed->params()) {
+    query.emplace(p.key, p.value);
+  }
+
+  auto [handler, path_params] = trie_.FindRoute(req.method(), parsed->path());
+  if (!handler) {
     Response res{http::status::not_found, req.version()};
     res.set(http::field::content_type, "text/plain");
     res.body() = "Route not found";
     res.prepare_payload();
-
     return res;
   }
 
-  return it->second(req);
+  RequestContext ctx(req, path_params, query);
+  return handler(ctx);
+}
+
+void Router::PrintAllRoutes() const {
+  const auto routes = trie_.GetAllRoutes();
+  std::cout << "All registered routes:" << std::endl;
+  for (const auto& route : routes) {
+    std::cout << "  " << route << std::endl;
+  }
 }

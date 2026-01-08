@@ -3,11 +3,8 @@
 #include <chrono>
 #include <iomanip>
 #include <nlohmann/json.hpp>
-#include <optional>
 #include <sstream>
 #include <string>
-
-#include "DbMapping.hpp"
 
 // TODO
 using Money = double;

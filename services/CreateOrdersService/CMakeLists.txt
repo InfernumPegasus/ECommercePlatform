@@ -2,9 +2,6 @@
 
 project(CreateOrdersService)
 
-find_package(Threads REQUIRED)
-find_package(Boost REQUIRED COMPONENTS url)
-
 add_executable(CreateOrdersService
     src/CreateOrdersService.cpp
     src/OrdersController.cpp
@@ -20,7 +17,6 @@ target_link_libraries(CreateOrdersService
     PUBLIC
         dto
         http
-        platform_deps
-#        Threads::Threads
-        Boost::url
+        platform_kafka
+        platform_db
 )
