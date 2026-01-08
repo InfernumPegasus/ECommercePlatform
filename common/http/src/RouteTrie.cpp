@@ -3,6 +3,8 @@
 #include <iostream>
 #include <ranges>
 
+#include "PathParamTypeRegistry.hpp"
+
 RouteTrie::RouteTrie() : root_(std::make_unique<TrieNode>()) {}
 
 std::string RouteTrie::NormalizePath(std::string_view path) {
@@ -20,7 +22,7 @@ std::vector<std::string> RouteTrie::SplitPath(const std::string_view path) {
   std::vector<std::string> segments;
   std::string current;
 
-  for (const char c : path) {
+  for (char c : path) {
     if (c == '/') {
       if (!current.empty()) {
         segments.push_back(std::move(current));
@@ -39,21 +41,35 @@ std::vector<std::string> RouteTrie::SplitPath(const std::string_view path) {
 }
 
 bool RouteTrie::ParseParamSegment(const std::string& segment, std::string& name,
-                                  std::optional<std::regex>& pattern) {
+                                  std::optional<std::regex>& pattern,
+                                  PathParamType& type) {
   if (segment.size() < 3 || segment.front() != '{' || segment.back() != '}') {
     return false;
   }
 
   const std::string content = segment.substr(1, segment.size() - 2);
+  const auto colon = content.find(':');
 
-  if (const auto colon = content.find(':'); colon == std::string::npos) {
+  if (colon == std::string::npos) {
     name = content;
     pattern.reset();
-  } else {
-    name = content.substr(0, colon);
-    pattern.emplace("^" + content.substr(colon + 1) + "$");
+    type = PathParamType::String;
+    return true;
   }
 
+  name = content.substr(0, colon);
+  const auto spec = std::string_view(content).substr(colon + 1);
+
+  // typed syntax: {id:int} etc.
+  if (const auto* info = FindPathParamType(spec)) {
+    pattern.emplace("^" + std::string(info->regex) + "$");
+    type = info->type;
+    return true;
+  }
+
+  // legacy regex: {id:\d+} etc.
+  pattern.emplace("^" + std::string(spec) + "$");
+  type = PathParamType::String;
   return true;
 }
 
@@ -63,18 +79,18 @@ void RouteTrie::AddPath(const std::vector<std::string>& segments, const http::ve
 
   for (const auto& segment : segments) {
     std::optional<std::regex> param_pattern;
+    auto param_type{PathParamType::String};
 
-    if (std::string param_name; ParseParamSegment(segment, param_name, param_pattern)) {
+    if (std::string param_name;
+        ParseParamSegment(segment, param_name, param_pattern, param_type)) {
       if (!current->param_child) {
-        current->param_child =
-            ParamEdge{param_name, param_pattern, std::make_unique<TrieNode>()};
+        current->param_child = ParamEdge{param_name, param_pattern, param_type,
+                                         std::make_unique<TrieNode>()};
       } else {
-        // Защита от конфликтов маршрутов
         if (current->param_child->name != param_name) {
           throw std::logic_error("Conflicting parameter names at same path level");
         }
       }
-
       current = current->param_child->child.get();
     } else {
       auto& child = current->static_children[segment];
@@ -105,23 +121,19 @@ RouteTrie::FindPath(const std::vector<std::string>& segments) const {
   std::unordered_map<std::string, std::string> params;
 
   for (const auto& segment : segments) {
-    // 1. Статический сегмент — всегда приоритетнее
     if (auto it = current->static_children.find(segment);
         it != current->static_children.end()) {
       current = it->second.get();
       continue;
     }
 
-    // 2. Параметрический сегмент
     if (current->param_child) {
-      const auto& [name, pattern, child] = *current->param_child;
-
-      if (pattern && !std::regex_match(segment, *pattern)) {
+      const auto& edge = *current->param_child;
+      if (edge.pattern && !std::regex_match(segment, *edge.pattern)) {
         return {nullptr, {}};
       }
-
-      params[name] = segment;
-      current = child.get();
+      params[edge.name] = segment;
+      current = edge.child.get();
       continue;
     }
 

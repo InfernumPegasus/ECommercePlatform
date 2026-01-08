@@ -15,16 +15,18 @@ class OrdersController : public IController<OrdersController> {
     Response (OrdersController::*handler)(const RequestContext&) const;
   };
 
-  static constexpr std::array<RouteDesc, 7> Routes() {
-    return {{
+  static constexpr auto Routes() {
+    return std::to_array<RouteDesc>({
         {http::verb::get, "", &OrdersController::List},
         {http::verb::post, "/remove_all", &OrdersController::RemoveAll},
-        {http::verb::get, "/{order_id:\\d+}", &OrdersController::GetById},
-        {http::verb::put, "/{order_id:\\d+}", &OrdersController::Update},
-        {http::verb::delete_, "/{order_id:\\d+}", &OrdersController::Delete},
-        {http::verb::get, "/{order_id:\\d+}/name", &OrdersController::GetOrderName},
-        {http::verb::put, "/{order_id:\\d+}/name", &OrdersController::UpdateOrderName},
-    }};
+        {http::verb::get, "/{order_id:float}", &OrdersController::GetById},
+        {http::verb::put, "/{order_id:int}", &OrdersController::Update},
+        {http::verb::delete_, "/{order_id:int}", &OrdersController::Delete},
+        {http::verb::get, "/{order_id:int}/name", &OrdersController::GetOrderName},
+        {http::verb::put, "/{order_id:int}/name", &OrdersController::UpdateOrderName},
+        {http::verb::get, "/{order_id:int}/name/{random_string:string}",
+         &OrdersController::TestMethod},
+    });
   }
 
   Response List(const RequestContext& ctx) const;
@@ -34,4 +36,5 @@ class OrdersController : public IController<OrdersController> {
   Response Delete(const RequestContext& ctx) const;
   Response GetOrderName(const RequestContext& ctx) const;
   Response UpdateOrderName(const RequestContext& ctx) const;
+  Response TestMethod(const RequestContext& ctx) const;
 };

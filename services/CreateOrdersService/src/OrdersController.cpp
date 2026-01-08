@@ -24,7 +24,7 @@ Response OrdersController::RemoveAll(const RequestContext& ctx) const {
 }
 
 Response OrdersController::GetById(const RequestContext& ctx) const {
-  int order_id = ctx.GetPathParameters().Required<int>("order_id");
+  auto order_id = ctx.GetPathParameters().Required<double>("order_id");
 
   return JsonResponse(ctx.GetRequest(), http::status::ok,
                       {{"order_id", order_id}, {"status", "pending"}});
@@ -68,4 +68,13 @@ Response OrdersController::UpdateOrderName(const RequestContext& ctx) const {
   return JsonResponse(
       ctx.GetRequest(), http::status::ok,
       {{"updated", true}, {"order_id", order_id}, {"new_name", body["name"]}});
+}
+
+Response OrdersController::TestMethod(const RequestContext& ctx) const {
+  int order_id = ctx.GetPathParameters().Required<int>("order_id");
+  std::string random_string =
+      ctx.GetPathParameters().Required<std::string>("random_string");
+
+  return JsonResponse(ctx.GetRequest(), http::status::ok,
+                      {{"order_id", order_id}, {"random_string", random_string}});
 }
