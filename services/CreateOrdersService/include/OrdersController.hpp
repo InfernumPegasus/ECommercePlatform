@@ -9,14 +9,8 @@ class OrdersController : public IController<OrdersController> {
  public:
   static constexpr std::string_view BasePath() { return "/orders"; }
 
-  struct RouteDesc {
-    http::verb method;
-    std::string_view path;
-    Response (OrdersController::*handler)(const RequestContext&) const;
-  };
-
   static constexpr auto Routes() {
-    return std::to_array<RouteDesc>({
+    return std::to_array<RouteDescription>({
         {http::verb::get, "", &OrdersController::List},
         {http::verb::post, "/remove_all", &OrdersController::RemoveAll},
         {http::verb::get, "/{order_id:float}", &OrdersController::GetById},
