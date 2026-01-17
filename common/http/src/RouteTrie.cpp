@@ -22,7 +22,7 @@ std::vector<std::string> RouteTrie::SplitPath(const std::string_view path) {
   std::vector<std::string> segments;
   std::string current;
 
-  for (char c : path) {
+  for (const char c : path) {
     if (c == '/') {
       if (!current.empty()) {
         segments.push_back(std::move(current));

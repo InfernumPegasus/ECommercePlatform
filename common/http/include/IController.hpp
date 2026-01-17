@@ -12,22 +12,18 @@ class IController {
 
   struct RouteDescription {
     http::verb method{};
-    std::string_view path{};
+    std::string path{};
     HandlerType handler{};
   };
 
   void RegisterRoutes(Router& router) {
     auto* instance = static_cast<Derived*>(this);
     for (const auto& r : Derived::Routes()) {
-      const std::string full_path =
-          std::string(Derived::BasePath()) + std::string(r.path);
-      router.AddRoute(r.method, full_path, r.handler, instance);
+      router.AddRoute(r.method, r.path, r.handler, instance);
     }
   }
 
   void PrintAvailableRoutes() const {
-    std::println(std::cout, "Controller for route '{}' routes:", Derived::BasePath());
-
     for (const auto& desc : Derived::Routes()) {
       std::println(std::cout, "route: method {}, path {}", http::to_string(desc.method),
                    desc.path);
