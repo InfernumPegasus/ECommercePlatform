@@ -1,5 +1,6 @@
 #pragma once
 
+#include "HttpCommon.hpp"
 #include "HttpTypes.hpp"
 #include "RouteTrie.hpp"
 
@@ -7,8 +8,7 @@ class Router {
  public:
   template <typename Controller>
   void AddRoute(http::verb method, std::string_view path,
-                Response (Controller::*handler)(const RequestContext&) const,
-                const Controller* instance) {
+                http_common::HandlerPtr<Controller> handler, Controller* instance) {
     trie_.AddRoute(method, path,
                    [handler, instance](const RequestContext& ctx) -> Response {
                      return (instance->*handler)(ctx);

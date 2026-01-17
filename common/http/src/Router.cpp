@@ -30,7 +30,7 @@ Response Router::Route(const Request& req) const {
     return res;
   }
 
-  RequestContext ctx(req, path_params, query);
+  RequestContext ctx(req, std::move(path_params), std::move(query));
   return handler(ctx);
 }
 
