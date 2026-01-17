@@ -23,12 +23,12 @@ class OrdersController : public IController<OrdersController> {
     });
   }
 
-  Response List(const RequestContext& ctx) const;
-  Response RemoveAll(const RequestContext& ctx) const;
-  Response GetById(const RequestContext& ctx) const;
-  Response Update(const RequestContext& ctx) const;
-  Response Delete(const RequestContext& ctx) const;
-  Response GetOrderName(const RequestContext& ctx) const;
-  Response UpdateOrderName(const RequestContext& ctx) const;
-  Response TestMethod(const RequestContext& ctx) const;
+  Response List(const RequestContext& ctx);
+  Response RemoveAll(const RequestContext& ctx);
+  Response GetById(const RequestContext& ctx);
+  Response Update(const RequestContext& ctx);
+  Response Delete(const RequestContext& ctx);
+  Response GetOrderName(const RequestContext& ctx);
+  Response UpdateOrderName(const RequestContext& ctx);
+  Response TestMethod(const RequestContext& ctx);
 };

@@ -2,19 +2,22 @@
 
 #include <iostream>
 
+#include "HttpCommon.hpp"
 #include "Router.hpp"
 
 template <typename Derived>
 class IController {
  public:
+  using HandlerType = http_common::HandlerPtr<Derived>;
+
   struct RouteDescription {
-    http::verb method;
-    std::string_view path;
-    Response (Derived::*handler)(const RequestContext&) const;
+    http::verb method{};
+    std::string_view path{};
+    HandlerType handler{};
   };
 
   void RegisterRoutes(Router& router) {
-    const auto* instance = static_cast<const Derived*>(this);
+    auto* instance = static_cast<Derived*>(this);
     for (const auto& r : Derived::Routes()) {
       const std::string full_path =
           std::string(Derived::BasePath()) + std::string(r.path);
