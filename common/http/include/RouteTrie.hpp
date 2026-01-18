@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/beast/http.hpp>
+#include <boost/container/flat_map.hpp>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -32,16 +33,25 @@ class RouteTrie {
  private:
   struct TrieNode;
 
-  struct ParamEdge {
+  struct ParamKey {
     std::string name;
+    PathParamType type;
+
+    bool operator<(const ParamKey& other) const {
+      return name < other.name || type < other.type;
+    }
+
+    bool operator==(const ParamKey& other) const = default;
+  };
+
+  struct ParamEdge {
     std::optional<std::regex> pattern;
-    PathParamType type{PathParamType::String};
     std::unique_ptr<TrieNode> child;
   };
 
   struct TrieNode {
     std::unordered_map<std::string, std::unique_ptr<TrieNode>> static_children;
-    std::optional<ParamEdge> param_child;
+    boost::container::flat_map<ParamKey, ParamEdge> param_children;
     std::unordered_map<http::verb, Handler> handlers;
   };
 
