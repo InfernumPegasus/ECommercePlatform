@@ -24,7 +24,7 @@ Response OrdersController::RemoveAll(const RequestContext& ctx) {
 }
 
 Response OrdersController::GetById(const RequestContext& ctx) {
-  auto order_id = ctx.GetPathParameters().Required<double>("order_id");
+  auto order_id = ctx.GetPathParameters().Required<std::string>("order_id");
 
   return JsonResponse(ctx.GetRequest(), http::status::ok,
                       {{"order_id", order_id}, {"status", "pending"}});
