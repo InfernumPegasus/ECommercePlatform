@@ -10,6 +10,5 @@ enum class PathParamType {
 
 struct PathParamTypeInfo {
   std::string_view name;
-  std::string_view regex;
   PathParamType type;
 };
