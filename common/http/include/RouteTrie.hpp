@@ -4,8 +4,6 @@
 #include <boost/container/flat_map.hpp>
 #include <functional>
 #include <memory>
-#include <optional>
-#include <regex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -38,7 +36,7 @@ class RouteTrie {
     PathParamType type;
 
     bool operator<(const ParamKey& other) const {
-      return name < other.name || type < other.type;
+      return Priority(type) > Priority(other.type);
     }
 
     bool operator==(const ParamKey& other) const = default;

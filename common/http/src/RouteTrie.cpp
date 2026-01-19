@@ -3,7 +3,7 @@
 #include <iostream>
 #include <ranges>
 
-#include "PathParamTypeRegistry.hpp"
+#include "PathParamType.hpp"
 
 RouteTrie::RouteTrie() : root_(std::make_unique<TrieNode>()) {}
 
@@ -71,7 +71,6 @@ void RouteTrie::AddPath(const std::vector<std::string>& segments, const http::ve
   TrieNode* current = root_.get();
 
   for (const auto& segment : segments) {
-    std::optional<std::regex> param_pattern;
     auto param_type{PathParamType::String};
 
     if (std::string param_name; ParseParamSegment(segment, param_name, param_type)) {
@@ -127,13 +126,13 @@ RouteTrie::FindPath(const std::vector<std::string>& segments) const {
     const ParamKey* best_key = nullptr;
 
     for (const auto& [key, edge] : current->param_children) {
-      if (!MatchByType(key.type, segment)) {
+      if (!Match(key.type, segment)) {
         continue;
       }
       best_edge = &edge;
       best_key = &key;
 
-      if (key.type != PathParamType::String) {
+      if (Priority(key.type) > Priority(PathParamType::String)) {
         break;
       }
     }
@@ -179,21 +178,9 @@ std::vector<std::string> RouteTrie::GetAllRoutes() const {
       walk(child.get(), path.empty() ? seg : path + "/" + seg);
     }
 
-    // TODO create to_string method
     for (const auto& [key, edge] : node->param_children) {
-      std::string type_str;
-      switch (key.type) {
-        case PathParamType::Integer:
-          type_str = "int";
-          break;
-        case PathParamType::Floating:
-          type_str = "float";
-          break;
-        default:
-          type_str = "string";
-          break;
-      }
-      const std::string seg = "{" + key.name + ":" + type_str + "}";
+      const std::string seg =
+          "{" + key.name + ":" + std::string(ToString(key.type)) + "}";
       walk(edge.child.get(), path.empty() ? seg : path + "/" + seg);
     }
   };
