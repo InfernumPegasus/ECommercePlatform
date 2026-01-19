@@ -41,7 +41,7 @@ std::vector<std::string> RouteTrie::SplitPath(const std::string_view path) {
 }
 
 bool RouteTrie::ParseParamSegment(const std::string& segment, std::string& name,
-                                  PathParamType& type) {
+                                  const PathParamTypeInfo*& info) {
   if (segment.size() < 3 || segment.front() != '{' || segment.back() != '}') {
     return false;
   }
@@ -51,15 +51,15 @@ bool RouteTrie::ParseParamSegment(const std::string& segment, std::string& name,
 
   if (colon == std::string::npos) {
     name = content;
-    type = PathParamType::String;
+    info = FindPathParamType("string");
     return true;
   }
 
   name = content.substr(0, colon);
   const auto spec = std::string_view(content).substr(colon + 1);
 
-  if (const auto* info = FindPathParamType(spec)) {
-    type = info->type;
+  if (const auto* found = FindPathParamType(spec)) {
+    info = found;
     return true;
   }
 
@@ -71,10 +71,10 @@ void RouteTrie::AddPath(const std::vector<std::string>& segments, const http::ve
   TrieNode* current = root_.get();
 
   for (const auto& segment : segments) {
-    auto param_type{PathParamType::String};
+    const PathParamTypeInfo* type_info = nullptr;
 
-    if (std::string param_name; ParseParamSegment(segment, param_name, param_type)) {
-      ParamKey key{std::move(param_name), param_type};
+    if (std::string param_name; ParseParamSegment(segment, param_name, type_info)) {
+      ParamKey key{std::move(param_name), type_info};
 
       if (auto it = current->param_children.find(key);
           it != current->param_children.end()) {
@@ -126,15 +126,13 @@ RouteTrie::FindPath(const std::vector<std::string>& segments) const {
     const ParamKey* best_key = nullptr;
 
     for (const auto& [key, edge] : current->param_children) {
-      if (!Match(key.type, segment)) {
+      if (!key.info->matcher(segment)) {
         continue;
       }
+
       best_edge = &edge;
       best_key = &key;
-
-      if (Priority(key.type) > Priority(PathParamType::String)) {
-        break;
-      }
+      break;
     }
 
     if (!best_edge || !best_key) {
@@ -179,8 +177,8 @@ std::vector<std::string> RouteTrie::GetAllRoutes() const {
     }
 
     for (const auto& [key, edge] : node->param_children) {
-      const std::string seg =
-          "{" + key.name + ":" + std::string(ToString(key.type)) + "}";
+      const std::string seg = "{" + key.name + ":" + std::string(key.info->name) + "}";
+
       walk(edge.child.get(), path.empty() ? seg : path + "/" + seg);
     }
   };
