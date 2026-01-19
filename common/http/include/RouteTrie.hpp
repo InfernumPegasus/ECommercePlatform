@@ -58,8 +58,8 @@ class RouteTrie {
 
   static std::vector<std::string> SplitPath(std::string_view path);
 
-  bool ParseParamSegment(const std::string& segment, std::string& name,
-                         const PathParamTypeInfo*& info);
+  static bool ParseParamSegment(const std::string& segment, std::string& name,
+                                const PathParamTypeInfo*& info);
 
   void AddPath(const std::vector<std::string>& segments, http::verb method,
                Handler handler);

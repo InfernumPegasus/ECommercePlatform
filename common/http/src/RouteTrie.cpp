@@ -51,14 +51,14 @@ bool RouteTrie::ParseParamSegment(const std::string& segment, std::string& name,
 
   if (colon == std::string::npos) {
     name = content;
-    info = FindPathParamType("string");
+    info = PathParamRegistry::Default();
     return true;
   }
 
   name = content.substr(0, colon);
   const auto spec = std::string_view(content).substr(colon + 1);
 
-  if (const auto* found = FindPathParamType(spec)) {
+  if (const auto* found = PathParamRegistry::FindByName(spec)) {
     info = found;
     return true;
   }
