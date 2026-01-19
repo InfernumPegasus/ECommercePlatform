@@ -33,10 +33,10 @@ class RouteTrie {
 
   struct ParamKey {
     std::string name;
-    const PathParamTypeInfo* info;
+    const PathParamTypeDescriptor* type;
 
     bool operator<(const ParamKey& other) const {
-      return info->priority > other.info->priority;
+      return type->priority > other.type->priority;
     }
 
     bool operator==(const ParamKey& other) const = default;
@@ -59,7 +59,7 @@ class RouteTrie {
   static std::vector<std::string> SplitPath(std::string_view path);
 
   static bool ParseParamSegment(const std::string& segment, std::string& name,
-                                const PathParamTypeInfo*& info);
+                                const PathParamTypeDescriptor*& type);
 
   void AddPath(const std::vector<std::string>& segments, http::verb method,
                Handler handler);
