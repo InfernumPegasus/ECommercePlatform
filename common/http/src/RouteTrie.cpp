@@ -78,14 +78,13 @@ void RouteTrie::AddPath(const std::vector<std::string>& segments, const http::ve
 
       if (auto it = current->param_children.find(key);
           it != current->param_children.end()) {
-        current = it->second.child.get();
+        current = it->second.get();
       } else {
-        ParamEdge new_edge;
-        new_edge.child = std::make_unique<TrieNode>();
+        auto new_node = std::make_unique<TrieNode>();
+        auto* new_node_ptr = new_node.get();
 
-        const auto [iter, _] = current->param_children.insert(
-            std::make_pair(std::move(key), std::move(new_edge)));
-        current = iter->second.child.get();
+        current->param_children.emplace(std::move(key), std::move(new_node));
+        current = new_node_ptr;
       }
     } else {
       auto& child = current->static_children[segment];
@@ -122,25 +121,25 @@ RouteTrie::FindPath(const std::vector<std::string>& segments) const {
       continue;
     }
 
-    const ParamEdge* best_edge = nullptr;
+    const std::unique_ptr<TrieNode>* best_child = nullptr;
     const ParamKey* best_key = nullptr;
 
-    for (const auto& [key, edge] : current->param_children) {
+    for (const auto& [key, child] : current->param_children) {
       if (!key.type->matcher(segment)) {
         continue;
       }
 
-      best_edge = &edge;
+      best_child = &child;
       best_key = &key;
       break;
     }
 
-    if (!best_edge || !best_key) {
+    if (!best_child || !best_key) {
       return {nullptr, {}};
     }
 
     params[best_key->name] = segment;
-    current = best_edge->child.get();
+    current = best_child->get();
   }
 
   return {current, std::move(params)};
@@ -176,10 +175,9 @@ std::vector<std::string> RouteTrie::GetAllRoutes() const {
       walk(child.get(), path.empty() ? seg : path + "/" + seg);
     }
 
-    for (const auto& [key, edge] : node->param_children) {
+    for (const auto& [key, child] : node->param_children) {
       const std::string seg = "{" + key.name + ":" + std::string(key.type->name) + "}";
-
-      walk(edge.child.get(), path.empty() ? seg : path + "/" + seg);
+      walk(child.get(), path.empty() ? seg : path + "/" + seg);
     }
   };
 
