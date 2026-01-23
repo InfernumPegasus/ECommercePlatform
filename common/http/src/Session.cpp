@@ -1,5 +1,7 @@
 #include "Session.hpp"
 
+#include <iostream>
+
 Session::Session(tcp::socket socket, const Router& router)
     : socket_(std::move(socket)), router_(router) {}
 
@@ -9,10 +11,19 @@ void Session::DoRead() {
   auto self = shared_from_this();
 
   http::async_read(socket_, buffer_, req_,
-                   [this, self](const boost::beast::error_code& ec, std::size_t) {
-                     if (!ec) {
-                       DoWrite(router_.Route(req_));
+                   [this, self](const beast::error_code& ec, std::size_t) {
+                     if (ec == http::error::end_of_stream) {
+                       Close();
+                       return;
                      }
+
+                     if (ec) {
+                       std::cout << "Session: read error: " << ec.message() << "\n";
+                       Close();
+                       return;
+                     }
+
+                     DoWrite(router_.Route(req_));
                    });
 }
 
@@ -22,15 +33,32 @@ void Session::DoWrite(Response res) {
   auto sp = std::make_shared<Response>(std::move(res));
 
   http::async_write(socket_, *sp,
-                    [this, self, sp](boost::beast::error_code ec, std::size_t) {
-                      if (ec) return;
+                    [this, self, sp](const beast::error_code& ec, std::size_t) {
+                      if (ec) {
+                        std::cout << "Session: write error: " << ec.message() << "\n";
+                        Close();
+                        return;
+                      }
 
-                      if (sp->keep_alive()) {
-                        req_ = {};
-                        buffer_.consume(buffer_.size());
-                        DoRead();
+                      const bool close = !sp->keep_alive();
+
+                      buffer_.consume(buffer_.size());
+                      req_ = {};
+
+                      if (close) {
+                        Close();
                       } else {
-                        socket_.shutdown(tcp::socket::shutdown_send, ec);
+                        DoRead();
                       }
                     });
+}
+
+void Session::Close() {
+  beast::error_code ec;
+
+  socket_.shutdown(tcp::socket::shutdown_send, ec);
+
+  if (ec && ec != beast::errc::not_connected) {
+    std::cout << "Session: shutdown error: " << ec.message() << "\n";
+  }
 }
