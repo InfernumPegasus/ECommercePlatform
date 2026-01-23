@@ -5,8 +5,8 @@
 
 class RequestContext {
  public:
-  RequestContext(const Request& req, const GeneralParams& path_params,
-                 const GeneralParams& query_params);
+  RequestContext(const Request& req, GeneralParams&& path_params,
+                 GeneralParams&& query_params);
 
   [[nodiscard]] const Request& GetRequest() const;
 

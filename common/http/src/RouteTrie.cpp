@@ -3,7 +3,7 @@
 #include <iostream>
 #include <ranges>
 
-#include "PathParamTypeRegistry.hpp"
+#include "PathParamType.hpp"
 
 RouteTrie::RouteTrie() : root_(std::make_unique<TrieNode>()) {}
 
@@ -22,7 +22,7 @@ std::vector<std::string> RouteTrie::SplitPath(const std::string_view path) {
   std::vector<std::string> segments;
   std::string current;
 
-  for (char c : path) {
+  for (const char c : path) {
     if (c == '/') {
       if (!current.empty()) {
         segments.push_back(std::move(current));
@@ -41,36 +41,29 @@ std::vector<std::string> RouteTrie::SplitPath(const std::string_view path) {
 }
 
 bool RouteTrie::ParseParamSegment(const std::string& segment, std::string& name,
-                                  std::optional<std::regex>& pattern,
-                                  PathParamType& type) {
+                                  const PathParamTypeDescriptor*& type) {
   if (segment.size() < 3 || segment.front() != '{' || segment.back() != '}') {
     return false;
   }
 
   const std::string content = segment.substr(1, segment.size() - 2);
-  const auto colon = content.find(':');
+  const size_t colon = content.find(':');
 
   if (colon == std::string::npos) {
     name = content;
-    pattern.reset();
-    type = PathParamType::String;
+    type = PathParamRegistry::Default();
     return true;
   }
 
   name = content.substr(0, colon);
   const auto spec = std::string_view(content).substr(colon + 1);
 
-  // typed syntax: {id:int} etc.
-  if (const auto* info = FindPathParamType(spec)) {
-    pattern.emplace("^" + std::string(info->regex) + "$");
-    type = info->type;
+  if (const auto* found = PathParamRegistry::FindByName(spec)) {
+    type = found;
     return true;
   }
 
-  // legacy regex: {id:\d+} etc.
-  pattern.emplace("^" + std::string(spec) + "$");
-  type = PathParamType::String;
-  return true;
+  throw std::runtime_error("Unknown path param type: " + std::string(spec));
 }
 
 void RouteTrie::AddPath(const std::vector<std::string>& segments, const http::verb method,
@@ -78,20 +71,21 @@ void RouteTrie::AddPath(const std::vector<std::string>& segments, const http::ve
   TrieNode* current = root_.get();
 
   for (const auto& segment : segments) {
-    std::optional<std::regex> param_pattern;
-    auto param_type{PathParamType::String};
+    const PathParamTypeDescriptor* param_type = nullptr;
 
-    if (std::string param_name;
-        ParseParamSegment(segment, param_name, param_pattern, param_type)) {
-      if (!current->param_child) {
-        current->param_child = ParamEdge{param_name, param_pattern, param_type,
-                                         std::make_unique<TrieNode>()};
+    if (std::string param_name; ParseParamSegment(segment, param_name, param_type)) {
+      ParamKey key{std::move(param_name), param_type};
+
+      if (auto it = current->param_children.find(key);
+          it != current->param_children.end()) {
+        current = it->second.get();
       } else {
-        if (current->param_child->name != param_name) {
-          throw std::logic_error("Conflicting parameter names at same path level");
-        }
+        auto new_node = std::make_unique<TrieNode>();
+        auto* new_node_ptr = new_node.get();
+
+        current->param_children.emplace(std::move(key), std::move(new_node));
+        current = new_node_ptr;
       }
-      current = current->param_child->child.get();
     } else {
       auto& child = current->static_children[segment];
       if (!child) {
@@ -127,17 +121,25 @@ RouteTrie::FindPath(const std::vector<std::string>& segments) const {
       continue;
     }
 
-    if (current->param_child) {
-      const auto& edge = *current->param_child;
-      if (edge.pattern && !std::regex_match(segment, *edge.pattern)) {
-        return {nullptr, {}};
+    const std::unique_ptr<TrieNode>* best_child = nullptr;
+    const ParamKey* best_key = nullptr;
+
+    for (const auto& [key, child] : current->param_children) {
+      if (!key.type->matcher(segment)) {
+        continue;
       }
-      params[edge.name] = segment;
-      current = edge.child.get();
-      continue;
+
+      best_child = &child;
+      best_key = &key;
+      break;
     }
 
-    return {nullptr, {}};
+    if (!best_child || !best_key) {
+      return {nullptr, {}};
+    }
+
+    params[best_key->name] = segment;
+    current = best_child->get();
   }
 
   return {current, std::move(params)};
@@ -173,10 +175,9 @@ std::vector<std::string> RouteTrie::GetAllRoutes() const {
       walk(child.get(), path.empty() ? seg : path + "/" + seg);
     }
 
-    if (node->param_child) {
-      const auto& edge = *node->param_child;
-      const std::string seg = "{" + edge.name + "}";
-      walk(edge.child.get(), path.empty() ? seg : path + "/" + seg);
+    for (const auto& [key, child] : node->param_children) {
+      const std::string seg = "{" + key.name + ":" + std::string(key.type->name) + "}";
+      walk(child.get(), path.empty() ? seg : path + "/" + seg);
     }
   };
 

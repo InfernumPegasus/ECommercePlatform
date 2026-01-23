@@ -5,7 +5,7 @@
 
 #include "HttpHelpers.hpp"
 
-Response OrdersController::List(const RequestContext& ctx) const {
+Response OrdersController::List(const RequestContext& ctx) {
   int limit = ctx.GetQueryParameters().TryGet<int>("limit").value_or(20);
   int offset = ctx.GetQueryParameters().TryGet<int>("offset").value_or(0);
   std::string_view offset_strv =
@@ -19,32 +19,32 @@ Response OrdersController::List(const RequestContext& ctx) const {
   return JsonResponse(ctx.GetRequest(), http::status::ok, response);
 }
 
-Response OrdersController::RemoveAll(const RequestContext& ctx) const {
+Response OrdersController::RemoveAll(const RequestContext& ctx) {
   return JsonResponse(ctx.GetRequest(), http::status::ok, {{"removed", true}});
 }
 
-Response OrdersController::GetById(const RequestContext& ctx) const {
-  auto order_id = ctx.GetPathParameters().Required<double>("order_id");
+Response OrdersController::GetById(const RequestContext& ctx) {
+  auto order_id = ctx.GetPathParameters().Required<std::string>("order_id");
 
   return JsonResponse(ctx.GetRequest(), http::status::ok,
                       {{"order_id", order_id}, {"status", "pending"}});
 }
 
-Response OrdersController::Update(const RequestContext& ctx) const {
+Response OrdersController::Update(const RequestContext& ctx) {
   int order_id = ctx.GetPathParameters().Required<int>("order_id");
 
   return JsonResponse(ctx.GetRequest(), http::status::ok,
                       {{"updated", true}, {"order_id", order_id}});
 }
 
-Response OrdersController::Delete(const RequestContext& ctx) const {
+Response OrdersController::Delete(const RequestContext& ctx) {
   int order_id = ctx.GetPathParameters().Required<int>("order_id");
 
   return JsonResponse(ctx.GetRequest(), http::status::ok,
                       {{"deleted", true}, {"order_id", order_id}});
 }
 
-Response OrdersController::GetOrderName(const RequestContext& ctx) const {
+Response OrdersController::GetOrderName(const RequestContext& ctx) {
   int order_id = ctx.GetPathParameters().Required<int>("order_id");
 
   bool random = ctx.GetQueryParameters().TryGet<bool>("random").value_or(false);
@@ -56,7 +56,7 @@ Response OrdersController::GetOrderName(const RequestContext& ctx) const {
                        {"random", random}});
 }
 
-Response OrdersController::UpdateOrderName(const RequestContext& ctx) const {
+Response OrdersController::UpdateOrderName(const RequestContext& ctx) {
   int order_id = ctx.GetPathParameters().Required<int>("order_id");
 
   auto body = nlohmann::json::parse(ctx.GetRequest().body(), nullptr, false);
@@ -70,7 +70,7 @@ Response OrdersController::UpdateOrderName(const RequestContext& ctx) const {
       {{"updated", true}, {"order_id", order_id}, {"new_name", body["name"]}});
 }
 
-Response OrdersController::TestMethod(const RequestContext& ctx) const {
+Response OrdersController::TestMethod(const RequestContext& ctx) {
   int order_id = ctx.GetPathParameters().Required<int>("order_id");
   std::string random_string =
       ctx.GetPathParameters().Required<std::string>("random_string");

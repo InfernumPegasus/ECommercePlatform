@@ -1,10 +1,9 @@
 #pragma once
 
 #include <boost/beast/http.hpp>
+#include <boost/container/flat_map.hpp>
 #include <functional>
 #include <memory>
-#include <optional>
-#include <regex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -32,27 +31,32 @@ class RouteTrie {
  private:
   struct TrieNode;
 
-  struct ParamEdge {
+  struct ParamKey {
     std::string name;
-    std::optional<std::regex> pattern;
-    PathParamType type{PathParamType::String};
-    std::unique_ptr<TrieNode> child;
+    const PathParamTypeDescriptor* type;
+
+    bool operator<(const ParamKey& other) const {
+      return type->priority > other.type->priority;
+    }
+
+    bool operator==(const ParamKey& other) const = default;
   };
 
   struct TrieNode {
     std::unordered_map<std::string, std::unique_ptr<TrieNode>> static_children;
-    std::optional<ParamEdge> param_child;
+
+    boost::container::flat_map<ParamKey, std::unique_ptr<TrieNode>> param_children;
+
     std::unordered_map<http::verb, Handler> handlers;
   };
 
   std::unique_ptr<TrieNode> root_;
 
   static std::string NormalizePath(std::string_view path);
-
   static std::vector<std::string> SplitPath(std::string_view path);
 
   static bool ParseParamSegment(const std::string& segment, std::string& name,
-                                std::optional<std::regex>& pattern, PathParamType& type);
+                                const PathParamTypeDescriptor*& type);
 
   void AddPath(const std::vector<std::string>& segments, http::verb method,
                Handler handler);
