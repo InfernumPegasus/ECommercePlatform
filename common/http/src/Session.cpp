@@ -1,7 +1,5 @@
 #include "Session.hpp"
 
-#include <iostream>
-
 Session::Session(tcp::socket socket, const Router& router)
     : socket_(std::move(socket)), router_(router) {}
 
@@ -12,13 +10,7 @@ void Session::DoRead() {
 
   http::async_read(socket_, buffer_, req_,
                    [this, self](const beast::error_code& ec, std::size_t) {
-                     if (ec == http::error::end_of_stream) {
-                       Close();
-                       return;
-                     }
-
-                     if (ec) {
-                       std::cout << "Session: read error: " << ec.message() << "\n";
+                     if (ec == http::error::end_of_stream || ec) {
                        Close();
                        return;
                      }
@@ -35,7 +27,6 @@ void Session::DoWrite(Response res) {
   http::async_write(socket_, *sp,
                     [this, self, sp](const beast::error_code& ec, std::size_t) {
                       if (ec) {
-                        std::cout << "Session: write error: " << ec.message() << "\n";
                         Close();
                         return;
                       }
@@ -57,8 +48,4 @@ void Session::Close() {
   beast::error_code ec;
 
   socket_.shutdown(tcp::socket::shutdown_send, ec);
-
-  if (ec && ec != beast::errc::not_connected) {
-    std::cout << "Session: shutdown error: " << ec.message() << "\n";
-  }
 }
