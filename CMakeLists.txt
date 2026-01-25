@@ -42,3 +42,6 @@ target_link_libraries(platform_json INTERFACE
 
 add_subdirectory(common)
 add_subdirectory(services)
+
+enable_testing()
+add_subdirectory(tests)
