@@ -24,9 +24,32 @@ concept StringLike =
 // String to value parsers
 namespace value_parser {
 
+namespace detail {
+inline constexpr std::string StringToLower(std::string_view value) {
+  std::string lower_value;
+  lower_value.reserve(value.size());
+  std::ranges::transform(value, std::back_inserter(lower_value),
+                         [](const unsigned char c) { return std::tolower(c); });
+
+  return lower_value;
+}
+}  // namespace detail
+
 template <Numeric T>
 std::optional<T> TryParse(std::string_view value) {
   T result{};
+
+  if constexpr (std::is_floating_point_v<T>) {
+    static constexpr size_t NAN_INF_LITERAL_LENGTH = 3;
+
+    if (value.size() == NAN_INF_LITERAL_LENGTH) {
+      const std::string lower_value = detail::StringToLower(value);
+
+      if (lower_value == "inf" || lower_value == "nan") {
+        return std::nullopt;
+      }
+    }
+  }
 
   auto [ptr, ec] = std::from_chars(value.data(), value.data() + value.size(), result);
 
@@ -44,10 +67,7 @@ std::optional<bool> TryParse(const std::string_view value) {
     return std::nullopt;
   }
 
-  std::string lower_value;
-  lower_value.reserve(value.size());
-  std::transform(value.begin(), value.end(), std::back_inserter(lower_value),
-                 [](const unsigned char c) { return std::tolower(c); });
+  const std::string lower_value = detail::StringToLower(value);
 
   if (lower_value == "true" || lower_value == "1") {
     return true;
