@@ -7,6 +7,11 @@ project(ECommercePlatform)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Windows API target version (Windows 7)
+if(WIN32)
+    add_compile_definitions(_WIN32_WINNT=0x0601)
+endif()
+
 # Packages installed via Conan
 find_package(libpqxx REQUIRED)
 find_package(RdKafka REQUIRED)
