@@ -1,0 +1,13 @@
+[requires]
+boost/1.90.0
+nlohmann_json/3.12.0
+libpqxx/7.10.5
+librdkafka/2.13.0
+modern-cpp-kafka/2024.07.03
+
+[generators]
+CMakeToolchain
+CMakeDeps
+
+[layout]
+cmake_layout

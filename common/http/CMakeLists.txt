@@ -2,7 +2,7 @@
 
 add_library(http OBJECT)
 
-find_package(Boost COMPONENTS url beast asio container REQUIRED)
+find_package(Boost REQUIRED)
 
 target_precompile_headers(http PRIVATE
         <boost/beast/core.hpp>
@@ -33,9 +33,8 @@ target_include_directories(http
 target_link_libraries(http
     PUBLIC
         platform_json
+        Boost::boost
         Boost::url
-        Boost::beast
-        Boost::asio
         Boost::container
         parser
 )
