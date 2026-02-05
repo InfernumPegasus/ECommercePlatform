@@ -1,9 +1,16 @@
 #include "Listener.hpp"
 
+#include <boost/asio/strand.hpp>
+#include <iostream>
+
 Listener::Listener(boost::asio::io_context& ioc, const tcp::endpoint& endpoint,
-                   const Router& router)
-    : ioc_(ioc), acceptor_(boost::asio::make_strand(ioc)), router_(router) {
-  boost::beast::error_code ec;
+                   const Router& router, const HttpServerConfig& config)
+    : ioc_(ioc),
+      acceptor_(boost::asio::make_strand(ioc)),
+      router_(router),
+      config_(config),
+      active_connections_(std::make_shared<std::atomic<std::size_t>>(0)) {
+  beast::error_code ec;
 
   acceptor_.open(endpoint.protocol(), ec);
   if (ec) {
@@ -33,12 +40,42 @@ Listener::Listener(boost::asio::io_context& ioc, const tcp::endpoint& endpoint,
   DoAccept();
 }
 
+tcp::endpoint Listener::LocalEndpoint() const {
+  beast::error_code ec;
+  auto endpoint = acceptor_.local_endpoint(ec);
+  if (ec) {
+    return {};
+  }
+  return endpoint;
+}
+
 void Listener::DoAccept() {
-  acceptor_.async_accept(boost::asio::make_strand(ioc_),
-                         [this](const boost::beast::error_code& ec, tcp::socket socket) {
-                           if (!ec) {
-                             std::make_shared<Session>(std::move(socket), router_)->Run();
-                           }
-                           DoAccept();
-                         });
+  acceptor_.async_accept(
+      boost::asio::make_strand(ioc_),
+      [this](const beast::error_code& ec, tcp::socket socket) {
+        if (!ec) {
+          beast::error_code ep_ec;
+          const auto remote = socket.remote_endpoint(ep_ec);
+          if (!ep_ec) {
+            std::cout << "[http] client connected from " << remote.address().to_string()
+                      << ":" << remote.port() << "\n";
+          } else {
+            std::cout << "[http] client connected (endpoint unknown)\n";
+          }
+
+          const auto current = active_connections_->load(std::memory_order_relaxed);
+          if (current >= config_.max_connections) {
+            std::cout << "[http] max connections reached (" << config_.max_connections
+                      << "), closing incoming connection\n";
+            beast::error_code close_ec;
+            socket.shutdown(tcp::socket::shutdown_send, close_ec);
+          } else {
+            active_connections_->fetch_add(1, std::memory_order_relaxed);
+            std::make_shared<Session>(std::move(socket), router_, config_,
+                                      active_connections_)
+                ->Run();
+          }
+        }
+        DoAccept();
+      });
 }

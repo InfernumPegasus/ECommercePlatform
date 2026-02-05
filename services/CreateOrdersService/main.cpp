@@ -1,4 +1,5 @@
 #include <boost/asio/io_context.hpp>
+#include <chrono>
 #include <boost/url.hpp>
 #include <iostream>
 #include <pqxx/pqxx>
@@ -6,6 +7,7 @@
 
 #include "CreateOrdersService.hpp"
 #include "DbMapping.hpp"
+#include "HttpServerConfig.hpp"
 #include "Listener.hpp"
 #include "User.hpp"
 
@@ -64,7 +66,16 @@ int main() {
     orders.PrintAvailableRoutes();
 
     tcp::endpoint endpoint{tcp::v4(), 1234};
-    auto listener = std::make_shared<Listener>(ioc, endpoint, router);
+    constexpr HttpServerConfig kServerConfig{
+        .first_read_timeout = std::chrono::seconds(30),
+        .keep_alive_timeout = std::chrono::seconds(15),
+        .header_limit_bytes = 8 * 1024,
+        .body_limit_bytes = 1024 * 1024,
+        .max_requests_per_connection = 50,
+        .max_connections = 1000,
+    };
+
+    auto listener = std::make_shared<Listener>(ioc, endpoint, router, kServerConfig);
 
     std::println(std::cout, "Listening on http://{}:{}\n", endpoint.address().to_string(),
                  endpoint.port());
