@@ -7,16 +7,19 @@ project(ECommercePlatform)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Packages installed via Vcpkg
-find_package(PostgreSQL REQUIRED)
-find_package(libpqxx CONFIG REQUIRED)
-find_package(RdKafka CONFIG REQUIRED)
-find_package(unofficial-modern-cpp-kafka CONFIG REQUIRED)
-find_package(nlohmann_json CONFIG REQUIRED)
+# Windows API target version (Windows 7)
+if(WIN32)
+    add_compile_definitions(_WIN32_WINNT=0x0601)
+endif()
+
+# Packages installed via Conan
+find_package(libpqxx REQUIRED)
+find_package(RdKafka REQUIRED)
+find_package(modern-cpp-kafka REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 add_library(platform_db INTERFACE)
 target_link_libraries(platform_db INTERFACE
-        PostgreSQL::PostgreSQL
         libpqxx::pqxx
 )
 
@@ -24,7 +27,7 @@ add_library(platform_kafka INTERFACE)
 target_link_libraries(platform_kafka INTERFACE
         RdKafka::rdkafka
         RdKafka::rdkafka++
-        unofficial::modern-cpp-kafka::modern-cpp-kafka
+        modern-cpp-kafka::modern-cpp-kafka
 )
 
 add_library(platform_json INTERFACE)

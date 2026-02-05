@@ -1,0 +1,2 @@
+conan install . -of . -s build_type=Debug -c tools.cmake.cmaketoolchain:generator=Ninja
+cmake --preset debug
