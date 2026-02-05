@@ -8,12 +8,15 @@ struct UserProfile {
 };
 
 inline void to_json(nlohmann::json& j, const UserProfile& p) {
-  j = {{"user_id", p.user_id}, {"display_name", p.display_name}};
+  j = {{"user_id", p.user_id},
+       {"display_name", p.display_name.value_or("")}};
 }
 
 inline void from_json(const nlohmann::json& j, UserProfile& p) {
   j.at("user_id").get_to(p.user_id);
-  if (j.contains("display_name")) {
-    j.at("display_name").get_to(p.display_name);
+  if (j.contains("display_name") && !j.at("display_name").is_null()) {
+    p.display_name = j.at("display_name").get<std::string>();
+  } else {
+    p.display_name.reset();
   }
 }

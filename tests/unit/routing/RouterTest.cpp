@@ -214,7 +214,7 @@ TEST_F(RouterTest, PathWithMultipleParameters) {
   // Для этого теста нужно добавить соответствующий маршрут
   class MultiParamController : public IController<MultiParamController> {
    public:
-    static constexpr auto Routes() {
+    static auto Routes() {
       using R = route_dsl::RouteBuilder<MultiParamController>;
       return R::Routes(R::GET("/users/{user_id:int}/orders/{order_id:string}",
                               &MultiParamController::GetOrder));
@@ -363,7 +363,7 @@ TEST_F(RouterTest, DifferentParameterTypes) {
 TEST_F(RouterTest, ControllerWithoutRoutes) {
   class EmptyController : public IController<EmptyController> {
    public:
-    static constexpr auto Routes() {
+    static auto Routes() {
       return std::array<typename IController<EmptyController>::RouteDescription, 0>{};
     }
   };
