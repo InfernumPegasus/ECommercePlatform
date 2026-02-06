@@ -35,7 +35,7 @@ target_link_libraries(platform_json INTERFACE
         nlohmann_json::nlohmann_json
 )
 
-# Creating core library that contains all dependencies from Vcpkg
+# Creating core library that contains all dependencies from Conan
 add_library(platform_deps INTERFACE)
 
 target_link_libraries(platform_deps INTERFACE
