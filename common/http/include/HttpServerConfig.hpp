@@ -4,6 +4,7 @@
 
 // TODO add config factory or builder pattern
 struct HttpServerConfig {
+  std::size_t io_threads{4};
   std::chrono::seconds first_read_timeout{30};
   std::chrono::seconds keep_alive_timeout{15};
   std::size_t header_limit_bytes{8 * 1024};
