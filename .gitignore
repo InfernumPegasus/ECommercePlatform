@@ -56,5 +56,9 @@ cmake-build-release
 # build folder
 build/*
 
+# conan folders
+.conan
+.conan2
+
 # .env
 .env
