@@ -1,2 +1,0 @@
-conan install . -of . -s build_type=Debug
-cmake --preset debug

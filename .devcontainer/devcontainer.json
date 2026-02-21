@@ -1,0 +1,19 @@
+{
+  "name": "ECommercePlatform (Debian)",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "workspaceFolder": "/workspaces/ECommercePlatform",
+  "containerEnv": {
+    "CONAN_HOME": "/workspaces/ECommercePlatform/.conan2"
+  },
+  "postCreateCommand": "mkdir -p \"$CONAN_HOME\" && conan profile detect --force",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cmake-tools",
+        "ms-vscode.cpptools"
+      ]
+    }
+  }
+}
