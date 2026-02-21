@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <memory>
@@ -28,12 +29,13 @@ class Session : public std::enable_shared_from_this<Session> {
   void Close();
 
   beast::tcp_stream stream_;
+  net::strand<net::any_io_executor> strand_;
   beast::flat_buffer buffer_;
   Request req_;
   std::optional<http::request_parser<http::string_body>> parser_;
   const Router& router_;
   const HttpServerConfig& config_;
-  std::shared_ptr<std::atomic<std::size_t>> active_connections_; // TODO add type alias
+  std::shared_ptr<std::atomic<std::size_t>> active_connections_;
   std::size_t requests_handled_ = 0;
   bool closed_ = false;
 };

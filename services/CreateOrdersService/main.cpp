@@ -4,6 +4,8 @@
 #include <iostream>
 #include <pqxx/pqxx>
 #include <string>
+#include <thread>
+#include <vector>
 
 #include "CreateOrdersService.hpp"
 #include "DbMapping.hpp"
@@ -57,7 +59,7 @@ int main() {
     // pqxx::connection conn(connectionString);
     // pqxx::work work{conn};
 
-    boost::asio::io_context ioc{1};
+    boost::asio::io_context ioc;
 
     Router router;
 
@@ -67,6 +69,7 @@ int main() {
 
     tcp::endpoint endpoint{tcp::v4(), 1234};
     constexpr HttpServerConfig kServerConfig{
+        .io_threads = 4,
         .first_read_timeout = std::chrono::seconds(30),
         .keep_alive_timeout = std::chrono::seconds(15),
         .header_limit_bytes = 8 * 1024,
@@ -79,7 +82,15 @@ int main() {
 
     std::println(std::cout, "Listening on http://{}:{}\n", endpoint.address().to_string(),
                  endpoint.port());
-    ioc.run();
+    std::vector<std::thread> threads;
+    threads.reserve(kServerConfig.io_threads);
+    for (std::size_t i = 0; i < kServerConfig.io_threads; ++i) {
+      threads.emplace_back([&ioc]() { ioc.run(); });
+    }
+
+    for (auto& t : threads) {
+      t.join();
+    }
   } catch (const std::exception& e) {
     std::cerr << "Fatal error: " << e.what() << "\n";
   }
