@@ -80,6 +80,14 @@ void RouteTrie::AddPath(const std::vector<std::string>& segments, const http::ve
           it != current->param_children.end()) {
         current = it->second.get();
       } else {
+        for (const auto& [existing_key, _] : current->param_children) {
+          if (existing_key.type == key.type) {
+            throw std::runtime_error(
+                "Ambiguous parameter routes with same matcher at: {" + existing_key.name +
+                "} and {" + key.name + "}");
+          }
+        }
+
         auto new_node = std::make_unique<TrieNode>();
         auto* new_node_ptr = new_node.get();
 
