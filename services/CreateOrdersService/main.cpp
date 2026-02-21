@@ -1,7 +1,8 @@
 #include <boost/asio/io_context.hpp>
-#include <chrono>
 #include <boost/url.hpp>
+#include <chrono>
 #include <iostream>
+#include <memory>
 #include <pqxx/pqxx>
 #include <string>
 #include <thread>
@@ -63,9 +64,9 @@ int main() {
 
     Router router;
 
-    OrdersController orders;
-    orders.RegisterRoutes(router);
-    orders.PrintAvailableRoutes();
+    auto orders = std::make_shared<OrdersController>();
+    orders->RegisterRoutes(router);
+    orders->PrintAvailableRoutes();
 
     tcp::endpoint endpoint{tcp::v4(), 1234};
     constexpr HttpServerConfig kServerConfig{

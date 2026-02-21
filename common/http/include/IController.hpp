@@ -1,12 +1,14 @@
 #pragma once
 
 #include <iostream>
+#include <memory>
+#include <stdexcept>
 
 #include "HttpCommon.hpp"
 #include "Router.hpp"
 
 template <typename Derived>
-class IController {
+class IController : public std::enable_shared_from_this<Derived> {
  public:
   using HandlerType = http_common::HandlerPtr<Derived>;
 
@@ -17,7 +19,11 @@ class IController {
   };
 
   void RegisterRoutes(Router& router) {
-    auto* instance = static_cast<Derived*>(this);
+    const auto instance = this->weak_from_this();
+    if (instance.expired()) {
+      throw std::logic_error(
+          "Controller must be managed by std::shared_ptr before RegisterRoutes()");
+    }
     for (const auto& r : Derived::Routes()) {
       router.AddRoute(r.method, r.path, r.handler, instance);
     }

@@ -2,15 +2,22 @@
 
 #include <boost/url.hpp>
 #include <iostream>
+#include <string>
+
+Response Router::MakeErrorResponse(const Request& req, const http::status status,
+                                   const std::string_view message) {
+  Response res{status, req.version()};
+  res.set(http::field::content_type, "text/plain");
+  res.keep_alive(req.keep_alive());
+  res.body() = std::string(message);
+  res.prepare_payload();
+  return res;
+}
 
 Response Router::Route(const Request& req) const {
   const auto parsed = boost::urls::parse_origin_form(req.target());
   if (!parsed) {
-    Response res{http::status::bad_request, req.version()};
-    res.set(http::field::content_type, "text/plain");
-    res.body() = "Invalid request target";
-    res.prepare_payload();
-    return res;
+    return MakeErrorResponse(req, http::status::bad_request, "Invalid request target");
   }
 
   std::cout << "Routing request: " << http::to_string(req.method()) << " "
@@ -23,15 +30,21 @@ Response Router::Route(const Request& req) const {
 
   auto [handler, path_params] = trie_.FindRoute(req.method(), parsed->path());
   if (!handler) {
-    Response res{http::status::not_found, req.version()};
-    res.set(http::field::content_type, "text/plain");
-    res.body() = "Route not found";
-    res.prepare_payload();
-    return res;
+    return MakeErrorResponse(req, http::status::not_found, "Route not found");
   }
 
-  RequestContext ctx(req, std::move(path_params), std::move(query));
-  return handler(ctx);
+  try {
+    RequestContext ctx(req, std::move(path_params), std::move(query));
+    return handler(ctx);
+  } catch (const std::exception& ex) {
+    std::cerr << "[http] handler error: " << ex.what() << "\n";
+    return MakeErrorResponse(req, http::status::internal_server_error,
+                             "Internal server error");
+  } catch (...) {
+    std::cerr << "[http] handler error: unknown exception\n";
+    return MakeErrorResponse(req, http::status::internal_server_error,
+                             "Internal server error");
+  }
 }
 
 void Router::PrintAllRoutes() const {

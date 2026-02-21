@@ -4,6 +4,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/http.hpp>
 #include <chrono>
+#include <memory>
 #include <string>
 #include <thread>
 
@@ -29,7 +30,8 @@ class TestController {
 class TestServer {
  public:
   explicit TestServer(const HttpServerConfig& config) : ioc_(1) {
-    router_.AddRoute(http::verb::get, "/ping", &TestController::Ping, &controller_);
+    controller_ = std::make_shared<TestController>();
+    router_.AddRoute(http::verb::get, "/ping", &TestController::Ping, controller_);
     listener_ =
         std::make_shared<Listener>(ioc_, tcp::endpoint{tcp::v4(), 0}, router_, config);
     port_ = listener_->LocalEndpoint().port();
@@ -48,7 +50,7 @@ class TestServer {
  private:
   net::io_context ioc_;
   Router router_;
-  TestController controller_;
+  std::shared_ptr<TestController> controller_;
   std::shared_ptr<Listener> listener_;
   unsigned short port_ = 0;
   std::thread thread_;
@@ -161,15 +163,23 @@ TEST(HttpServerBehaviorIntegrationTest, HeaderLimitIsEnforced) {
   TestServer server(config);
 
   net::io_context ioc;
-  auto socket = ConnectSocket(ioc, server.Port());
+  beast::tcp_stream stream{ioc};
+  stream.connect(tcp::endpoint{net::ip::make_address("127.0.0.1"), server.Port()});
   std::string big_header(200, 'A');
   std::string request =
       "GET /ping HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Fill: " + big_header + "\r\n\r\n";
   boost::system::error_code ec;
-  socket.write_some(net::buffer(request), ec);
+  stream.socket().write_some(net::buffer(request), ec);
   ASSERT_FALSE(ec);
 
-  EXPECT_TRUE(WaitForSocketClose(socket, 3s));
+  beast::flat_buffer buffer;
+  http::response<http::string_body> res;
+  http::read(stream, buffer, res, ec);
+  ASSERT_FALSE(ec);
+  EXPECT_EQ(res.result(), http::status::request_header_fields_too_large);
+  EXPECT_FALSE(res.keep_alive());
+
+  EXPECT_TRUE(WaitForSocketClose(stream.socket(), 3s));
 }
 
 TEST(HttpServerBehaviorIntegrationTest, BodyLimitIsEnforced) {
@@ -191,6 +201,14 @@ TEST(HttpServerBehaviorIntegrationTest, BodyLimitIsEnforced) {
   req.prepare_payload();
 
   http::write(stream, req);
+
+  beast::flat_buffer buffer;
+  http::response<http::string_body> res;
+  boost::system::error_code ec;
+  http::read(stream, buffer, res, ec);
+  ASSERT_FALSE(ec);
+  EXPECT_EQ(res.result(), http::status::payload_too_large);
+  EXPECT_FALSE(res.keep_alive());
 
   EXPECT_TRUE(WaitForSocketClose(stream.socket(), 3s));
 }
