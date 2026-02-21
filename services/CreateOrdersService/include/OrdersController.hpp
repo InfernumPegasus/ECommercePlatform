@@ -9,17 +9,16 @@
 class OrdersController : public IController<OrdersController> {
  public:
   static constexpr auto Routes() {
-    using R = route_dsl::RouteBuilder<OrdersController>;
-
-    return R::WithBase("/orders", R::GET("", &OrdersController::List),
-                       R::POST("/remove_all", &OrdersController::RemoveAll),
-                       R::GET("/{order_id:int}", &OrdersController::GetById),
-                       R::PUT("/{order_id:int}", &OrdersController::Update),
-                       R::DEL("/{order_id:int}", &OrdersController::Delete),
-                       R::GET("/{order_id:int}/name", &OrdersController::GetOrderName),
-                       R::PUT("/{order_id:int}/name", &OrdersController::UpdateOrderName),
-                       R::PUT("/{order_id:int}/name/{random_string:string}",
-                              &OrdersController::TestMethod));
+    return route_dsl::WithBase(
+        "/orders", route_dsl::GET("", &OrdersController::List),
+        route_dsl::POST("/remove_all", &OrdersController::RemoveAll),
+        route_dsl::GET("/{order_id:int}", &OrdersController::GetById),
+        route_dsl::PUT("/{order_id:int}", &OrdersController::Update),
+        route_dsl::DEL("/{order_id:int}", &OrdersController::Delete),
+        route_dsl::GET("/{order_id:int}/name", &OrdersController::GetOrderName),
+        route_dsl::PUT("/{order_id:int}/name", &OrdersController::UpdateOrderName),
+        route_dsl::PUT("/{order_id:int}/name/{random_string:string}",
+                       &OrdersController::TestMethod));
   }
 
   Response List(const RequestContext& ctx);
