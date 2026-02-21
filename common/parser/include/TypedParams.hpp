@@ -1,6 +1,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <utility>
 
 #include "TypedParams.hpp"
 #include "ValueParser.hpp"
@@ -9,7 +10,7 @@ using GeneralParams = std::unordered_map<std::string, std::string>;
 
 class TypedParams {
  public:
-  explicit TypedParams(const GeneralParams& data) : data_(data) {}
+  explicit TypedParams(GeneralParams data) : data_(std::move(data)) {}
 
   template <typename T>
   std::optional<T> TryGet(const std::string& key) const {
@@ -32,5 +33,5 @@ class TypedParams {
   [[nodiscard]] const GeneralParams& GetRawParams() const { return data_; }
 
  private:
-  const GeneralParams& data_;
+  GeneralParams data_;
 };

@@ -154,8 +154,8 @@ TEST_F(TypedParamsTest, GetRawParams) {
     EXPECT_EQ(it->second, expected_value);
   }
 
-  // Проверяем, что это действительно ссылка на оригинальные данные
-  EXPECT_EQ(&raw_params, &test_data_);
+  // TypedParams хранит собственную копию параметров
+  EXPECT_NE(&raw_params, &test_data_);
 }
 
 // Тесты для работы с пустыми параметрами
@@ -199,8 +199,8 @@ TEST_F(TypedParamsTest, DifferentStringTypes) {
   EXPECT_TRUE(name_sv.has_value());
   EXPECT_EQ(*name_sv, "John Doe");
 
-  // Проверяем, что string_view действительно view
-  EXPECT_EQ(name_sv->data(), test_data_["name"].data());
+  // Проверяем, что string_view возвращает корректное значение
+  EXPECT_EQ(*name_sv, test_data_["name"]);
 }
 
 // Тесты для специальных числовых значений
@@ -252,10 +252,9 @@ TEST_F(TypedParamsTest, DataImmutability) {
   // Попытка изменить оригинальные данные после создания TypedParams
   test_data_["new_key"] = "new_value";
 
-  // TypedParams должен хранить ссылку, поэтому изменения должны быть видны
+  // TypedParams хранит snapshot, изменения исходной map не должны влиять
   auto new_value = typed_params_->TryGet<std::string>("new_key");
-  EXPECT_TRUE(new_value.has_value());
-  EXPECT_EQ(*new_value, "new_value");
+  EXPECT_FALSE(new_value.has_value());
 }
 
 // Тесты для производительности

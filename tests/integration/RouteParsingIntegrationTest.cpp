@@ -104,8 +104,8 @@ TEST_F(RouteParsingIntegrationTest, StringParameters) {
   EXPECT_TRUE(username_view.has_value());
   EXPECT_EQ(*username_view, "john_doe");
 
-  // Проверяем, что это действительно view
-  EXPECT_EQ(username_view->data(), route_params_["username"].data());
+  // Проверяем, что view возвращает корректное значение
+  EXPECT_EQ(*username_view, route_params_["username"]);
 }
 
 TEST_F(RouteParsingIntegrationTest, FloatAndDoubleParameters) {
