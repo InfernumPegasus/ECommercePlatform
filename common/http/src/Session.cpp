@@ -1,7 +1,21 @@
 #include "Session.hpp"
 
 #include <iostream>
+#include <string>
+#include <string_view>
 #include <thread>
+
+namespace {
+Response MakeParserErrorResponse(const Request& req, const http::status status,
+                                 const std::string_view message) {
+  Response res{status, req.version()};
+  res.set(http::field::content_type, "text/plain");
+  res.keep_alive(false);
+  res.body() = std::string(message);
+  res.prepare_payload();
+  return res;
+}
+}  // namespace
 
 Session::Session(tcp::socket socket, const Router& router, const HttpServerConfig& config,
                  const std::shared_ptr<std::atomic<std::size_t>>& active_connections)
@@ -35,8 +49,29 @@ void Session::DoRead() {
           Close();
           return;
         }
-        if (ec == http::error::end_of_stream || ec) {
+        if (ec == http::error::end_of_stream) {
           Close();
+          return;
+        }
+        if (ec) {
+          Request req;
+          req.version(11);
+
+          if (ec == http::error::header_limit) {
+            DoWrite(MakeParserErrorResponse(req,
+                                            http::status::request_header_fields_too_large,
+                                            "Request header fields are too large"));
+            return;
+          }
+
+          if (ec == http::error::body_limit) {
+            DoWrite(MakeParserErrorResponse(req, http::status::payload_too_large,
+                                            "Request body is too large"));
+            return;
+          }
+
+          DoWrite(MakeParserErrorResponse(req, http::status::bad_request,
+                                          "Malformed HTTP request"));
           return;
         }
 

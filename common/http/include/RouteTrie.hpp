@@ -5,6 +5,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -36,7 +37,8 @@ class RouteTrie {
     const PathParamTypeDescriptor* type;
 
     bool operator<(const ParamKey& other) const {
-      return type->priority > other.type->priority;
+      return std::tie(type->priority, type->name, name) >
+             std::tie(other.type->priority, other.type->name, other.name);
     }
 
     bool operator==(const ParamKey& other) const = default;

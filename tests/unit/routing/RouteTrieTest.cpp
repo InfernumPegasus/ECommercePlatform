@@ -319,6 +319,18 @@ TEST_F(RouteTrieTest, InvalidParameterType) {
                std::runtime_error);
 }
 
+// Тест 17: Конфликт одинаковых matcher с разными именами параметров
+TEST_F(RouteTrieTest, AmbiguousParameterNamesWithSameTypeThrows) {
+  RouteTrie::Handler handler = [](const RequestContext&) {
+    return Response{http::status::ok, 11};
+  };
+
+  trie_->AddRoute(http::verb::get, "/users/{id:int}", handler);
+
+  EXPECT_THROW(trie_->AddRoute(http::verb::get, "/users/{user_id:int}", handler),
+               std::runtime_error);
+}
+
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

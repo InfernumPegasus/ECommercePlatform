@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
 #include <boost/beast/http.hpp>
+#include <memory>
+#include <stdexcept>
 
 #include "IController.hpp"
 #include "RouteDSL.hpp"
@@ -12,13 +14,12 @@ namespace http = boost::beast::http;
 class MockController : public IController<MockController> {
  public:
   static constexpr auto Routes() {
-    using R = route_dsl::RouteBuilder<MockController>;
-
-    return R::WithBase("/api", R::GET("/users", &MockController::GetUsers),
-                       R::GET("/users/{id:int}", &MockController::GetUserById),
-                       R::POST("/users", &MockController::CreateUser),
-                       R::PUT("/users/{id:int}", &MockController::UpdateUser),
-                       R::DEL("/users/{id:int}", &MockController::DeleteUser));
+    return route_dsl::WithBase(
+        "/api", route_dsl::GET("/users", &MockController::GetUsers),
+        route_dsl::GET("/users/{id:int}", &MockController::GetUserById),
+        route_dsl::POST("/users", &MockController::CreateUser),
+        route_dsl::PUT("/users/{id:int}", &MockController::UpdateUser),
+        route_dsl::DEL("/users/{id:int}", &MockController::DeleteUser));
   }
 
   // Mock методы
@@ -71,7 +72,7 @@ class RouterTest : public ::testing::Test {
  protected:
   void SetUp() override {
     router_ = std::make_unique<Router>();
-    controller_ = std::make_unique<MockController>();
+    controller_ = std::make_shared<MockController>();
 
     // Регистрируем маршруты контроллера
     controller_->RegisterRoutes(*router_);
@@ -83,7 +84,7 @@ class RouterTest : public ::testing::Test {
   }
 
   std::unique_ptr<Router> router_;
-  std::unique_ptr<MockController> controller_;
+  std::shared_ptr<MockController> controller_;
 
   // Вспомогательный метод для создания запроса
   Request CreateRequest(http::verb method, const std::string& target) {
@@ -215,9 +216,9 @@ TEST_F(RouterTest, PathWithMultipleParameters) {
   class MultiParamController : public IController<MultiParamController> {
    public:
     static auto Routes() {
-      using R = route_dsl::RouteBuilder<MultiParamController>;
-      return R::Routes(R::GET("/users/{user_id:int}/orders/{order_id:string}",
-                              &MultiParamController::GetOrder));
+      return route_dsl::Routes(route_dsl::GET(
+          "/users/{user_id:int}/orders/{order_id:string}",
+          &MultiParamController::GetOrder));
     }
 
     Response GetOrder(const RequestContext& ctx) {
@@ -232,9 +233,9 @@ TEST_F(RouterTest, PathWithMultipleParameters) {
     }
   };
 
-  MultiParamController mp_controller;
+  auto mp_controller = std::make_shared<MultiParamController>();
   Router test_router;
-  mp_controller.RegisterRoutes(test_router);
+  mp_controller->RegisterRoutes(test_router);
 
   auto req = CreateRequest(http::verb::get, "/users/123/orders/order-abc");
   auto response = test_router.Route(req);
@@ -257,9 +258,8 @@ TEST_F(RouterTest, RouteRegistrationOrder) {
     TestController(bool& h1, bool& h2) : handler1_called_(h1), handler2_called_(h2) {}
 
     static constexpr auto Routes() {
-      using R = route_dsl::RouteBuilder<TestController>;
-      return R::Routes(R::GET("/users/{id:int}", &TestController::Handler1),
-                       R::GET("/users/new", &TestController::Handler2));
+      return route_dsl::Routes(route_dsl::GET("/users/{id:int}", &TestController::Handler1),
+                               route_dsl::GET("/users/new", &TestController::Handler2));
     }
 
     Response Handler1(const RequestContext&) {
@@ -277,8 +277,8 @@ TEST_F(RouterTest, RouteRegistrationOrder) {
     bool& handler2_called_;
   };
 
-  TestController test_controller(handler1_called, handler2_called);
-  test_controller.RegisterRoutes(test_router);
+  auto test_controller = std::make_shared<TestController>(handler1_called, handler2_called);
+  test_controller->RegisterRoutes(test_router);
 
   // Проверяем что статический путь "/users/new" не матчится как параметр
   auto req1 = CreateRequest(http::verb::get, "/users/new");
@@ -311,10 +311,10 @@ TEST_F(RouterTest, DifferentParameterTypes) {
   class TypeTestController : public IController<TypeTestController> {
    public:
     static constexpr auto Routes() {
-      using R = route_dsl::RouteBuilder<TypeTestController>;
-      return R::Routes(R::GET("/test/{id:int}", &TypeTestController::HandleInt),
-                       R::GET("/test/{value:float}", &TypeTestController::HandleFloat),
-                       R::GET("/test/{name:string}", &TypeTestController::HandleString));
+      return route_dsl::Routes(
+          route_dsl::GET("/test/{id:int}", &TypeTestController::HandleInt),
+          route_dsl::GET("/test/{value:float}", &TypeTestController::HandleFloat),
+          route_dsl::GET("/test/{name:string}", &TypeTestController::HandleString));
     }
 
     Response HandleInt(const RequestContext& ctx) {
@@ -339,9 +339,9 @@ TEST_F(RouterTest, DifferentParameterTypes) {
     }
   };
 
-  TypeTestController type_controller;
+  auto type_controller = std::make_shared<TypeTestController>();
   Router test_router;
-  type_controller.RegisterRoutes(test_router);
+  type_controller->RegisterRoutes(test_router);
 
   // Тестируем int
   auto req1 = CreateRequest(http::verb::get, "/test/42");
@@ -368,11 +368,11 @@ TEST_F(RouterTest, ControllerWithoutRoutes) {
     }
   };
 
-  EmptyController empty_controller;
+  auto empty_controller = std::make_shared<EmptyController>();
   Router test_router;
 
   // Не должно быть ошибок при регистрации пустого контроллера
-  EXPECT_NO_THROW(empty_controller.RegisterRoutes(test_router));
+  EXPECT_NO_THROW(empty_controller->RegisterRoutes(test_router));
 
   // Маршрутов не должно быть
   auto req = CreateRequest(http::verb::get, "/anything");
@@ -396,8 +396,7 @@ TEST_F(RouterTest, RequestBodyPassedToHandler) {
   class BodyTestController : public IController<BodyTestController> {
    public:
     static constexpr auto Routes() {
-      using R = route_dsl::RouteBuilder<BodyTestController>;
-      return R::Routes(R::POST("/echo", &BodyTestController::Echo));
+      return route_dsl::Routes(route_dsl::POST("/echo", &BodyTestController::Echo));
     }
 
     Response Echo(const RequestContext& ctx) {
@@ -410,9 +409,9 @@ TEST_F(RouterTest, RequestBodyPassedToHandler) {
     }
   };
 
-  BodyTestController body_controller;
+  auto body_controller = std::make_shared<BodyTestController>();
   Router test_router;
-  body_controller.RegisterRoutes(test_router);
+  body_controller->RegisterRoutes(test_router);
 
   Request req;
   req.method(http::verb::post);
@@ -427,6 +426,28 @@ TEST_F(RouterTest, RequestBodyPassedToHandler) {
 
   EXPECT_EQ(response.result(), http::status::ok);
   EXPECT_EQ(response.body(), "Test request body");
+}
+
+// Тест 16: Исключения в обработчике конвертируются в 500
+TEST_F(RouterTest, HandlerExceptionReturnsInternalServerError) {
+  class ThrowingController : public IController<ThrowingController> {
+   public:
+    static constexpr auto Routes() {
+      return route_dsl::Routes(route_dsl::GET("/throw", &ThrowingController::Throw));
+    }
+
+    Response Throw(const RequestContext&) { throw std::runtime_error("boom"); }
+  };
+
+  auto throwing_controller = std::make_shared<ThrowingController>();
+  Router test_router;
+  throwing_controller->RegisterRoutes(test_router);
+
+  auto req = CreateRequest(http::verb::get, "/throw");
+  auto response = test_router.Route(req);
+
+  EXPECT_EQ(response.result(), http::status::internal_server_error);
+  EXPECT_TRUE(response.keep_alive());
 }
 
 int main(int argc, char** argv) {
