@@ -1,5 +1,6 @@
 #include "RouteTrie.hpp"
 
+#include <algorithm>
 #include <iostream>
 #include <ranges>
 
@@ -7,7 +8,7 @@
 
 RouteTrie::RouteTrie() : root_(std::make_unique<TrieNode>()) {}
 
-std::string RouteTrie::NormalizePath(std::string_view path) {
+std::string_view RouteTrie::NormalizePathView(std::string_view path) {
   if (!path.empty() && path.front() == '/') {
     path.remove_prefix(1);
   }
@@ -15,26 +16,44 @@ std::string RouteTrie::NormalizePath(std::string_view path) {
     path.remove_suffix(1);
   }
 
-  return std::string(path);
+  return path;
 }
 
-std::vector<std::string> RouteTrie::SplitPath(const std::string_view path) {
-  std::vector<std::string> segments;
-  std::string current;
+std::string RouteTrie::NormalizePathOwned(const std::string_view path) {
+  return std::string(NormalizePathView(path));
+}
 
-  for (const char c : path) {
-    if (c == '/') {
-      if (!current.empty()) {
-        segments.push_back(std::move(current));
-        current.clear();
-      }
-    } else {
-      current.push_back(c);
-    }
+std::vector<std::string_view> RouteTrie::SplitPathView(const std::string_view path) {
+  std::vector<std::string_view> segments;
+  if (!path.empty()) {
+    segments.reserve(static_cast<std::size_t>(
+        std::count(path.begin(), path.end(), '/') + 1));
   }
 
-  if (!current.empty()) {
-    segments.push_back(std::move(current));
+  std::size_t segment_start = 0;
+  for (std::size_t i = 0; i < path.size(); ++i) {
+    if (path[i] != '/') {
+      continue;
+    }
+    if (i > segment_start) {
+      segments.push_back(path.substr(segment_start, i - segment_start));
+    }
+    segment_start = i + 1;
+  }
+
+  if (segment_start < path.size()) {
+    segments.push_back(path.substr(segment_start));
+  }
+
+  return segments;
+}
+
+std::vector<std::string> RouteTrie::SplitPathOwned(const std::string_view path) {
+  std::vector<std::string> segments;
+  auto view_segments = SplitPathView(path);
+  segments.reserve(view_segments.size());
+  for (const auto segment : view_segments) {
+    segments.emplace_back(segment);
   }
 
   return segments;
@@ -108,8 +127,8 @@ void RouteTrie::AddPath(const std::vector<std::string>& segments, const http::ve
 
 void RouteTrie::AddRoute(const http::verb method, const std::string_view path,
                          Handler handler) {
-  const auto normalized = NormalizePath(path);
-  const auto segments = SplitPath(normalized);
+  const auto normalized = NormalizePathOwned(path);
+  const auto segments = SplitPathOwned(normalized);
 
   AddPath(segments, method, std::move(handler));
 
@@ -118,9 +137,10 @@ void RouteTrie::AddRoute(const http::verb method, const std::string_view path,
 }
 
 std::pair<const RouteTrie::TrieNode*, std::unordered_map<std::string, std::string>>
-RouteTrie::FindPath(const std::vector<std::string>& segments) const {
+RouteTrie::FindPath(const std::vector<std::string_view>& segments) const {
   const TrieNode* current = root_.get();
   std::unordered_map<std::string, std::string> params;
+  params.reserve(segments.size());
 
   for (const auto& segment : segments) {
     if (auto it = current->static_children.find(segment);
@@ -146,7 +166,7 @@ RouteTrie::FindPath(const std::vector<std::string>& segments) const {
       return {nullptr, {}};
     }
 
-    params[best_key->name] = segment;
+    params[best_key->name] = std::string(segment);
     current = best_child->get();
   }
 
@@ -155,8 +175,8 @@ RouteTrie::FindPath(const std::vector<std::string>& segments) const {
 
 std::pair<RouteTrie::Handler, std::unordered_map<std::string, std::string>>
 RouteTrie::FindRoute(const http::verb method, const std::string_view path) const {
-  const auto normalized = NormalizePath(path);
-  const auto segments = SplitPath(normalized);
+  const auto normalized = NormalizePathView(path);
+  const auto segments = SplitPathView(normalized);
 
   auto [node, params] = FindPath(segments);
   if (!node) {

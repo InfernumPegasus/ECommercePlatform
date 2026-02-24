@@ -32,6 +32,30 @@ class RouteTrie {
  private:
   struct TrieNode;
 
+  struct TransparentStringHash {
+    using is_transparent = void;
+    
+    std::size_t operator()(const std::string_view value) const noexcept {
+      return std::hash<std::string_view>{}(value);
+    }
+
+    std::size_t operator()(const std::string& value) const noexcept {
+      return (*this)(std::string_view(value));
+    }
+  };
+
+  struct TransparentStringEqual {
+    using is_transparent = void;
+
+    bool operator()(const std::string_view lhs, const std::string_view rhs) const noexcept {
+      return lhs == rhs;
+    }
+
+    bool operator()(const std::string& lhs, const std::string& rhs) const noexcept {
+      return lhs == rhs;
+    }
+  };
+
   struct ParamKey {
     std::string name;
     const PathParamTypeDescriptor* type;
@@ -45,7 +69,9 @@ class RouteTrie {
   };
 
   struct TrieNode {
-    std::unordered_map<std::string, std::unique_ptr<TrieNode>> static_children;
+    std::unordered_map<std::string, std::unique_ptr<TrieNode>, TransparentStringHash,
+                       TransparentStringEqual>
+        static_children;
 
     boost::container::flat_map<ParamKey, std::unique_ptr<TrieNode>> param_children;
 
@@ -54,8 +80,10 @@ class RouteTrie {
 
   std::unique_ptr<TrieNode> root_;
 
-  static std::string NormalizePath(std::string_view path);
-  static std::vector<std::string> SplitPath(std::string_view path);
+  static std::string NormalizePathOwned(std::string_view path);
+  static std::string_view NormalizePathView(std::string_view path);
+  static std::vector<std::string> SplitPathOwned(std::string_view path);
+  static std::vector<std::string_view> SplitPathView(std::string_view path);
 
   static bool ParseParamSegment(const std::string& segment, std::string& name,
                                 const PathParamTypeDescriptor*& type);
@@ -64,5 +92,5 @@ class RouteTrie {
                Handler handler);
 
   [[nodiscard]] std::pair<const TrieNode*, std::unordered_map<std::string, std::string>>
-  FindPath(const std::vector<std::string>& segments) const;
+  FindPath(const std::vector<std::string_view>& segments) const;
 };
