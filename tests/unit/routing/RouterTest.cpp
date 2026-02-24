@@ -2,6 +2,7 @@
 
 #include <boost/beast/http.hpp>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <stdexcept>
 
 #include "IController.hpp"
@@ -151,6 +152,8 @@ TEST_F(RouterTest, RouteNotFound) {
   auto response = router_->Route(req);
 
   EXPECT_EQ(response.result(), http::status::not_found);
+  const auto error = nlohmann::json::parse(response.body());
+  EXPECT_EQ(error["error"]["code"], "route_not_found");
   EXPECT_EQ(controller_->GetCallCount("GetUsers"), 0);
 
   // Неправильный метод для существующего пути
@@ -158,6 +161,8 @@ TEST_F(RouterTest, RouteNotFound) {
   auto response2 = router_->Route(req2);
 
   EXPECT_EQ(response2.result(), http::status::not_found);
+  const auto error2 = nlohmann::json::parse(response2.body());
+  EXPECT_EQ(error2["error"]["code"], "route_not_found");
 }
 
 // Тест 5: Query параметры передаются
@@ -196,6 +201,8 @@ TEST_F(RouterTest, InvalidPathFormat) {
   auto response = router_->Route(req);
 
   EXPECT_EQ(response.result(), http::status::bad_request);
+  const auto error = nlohmann::json::parse(response.body());
+  EXPECT_EQ(error["error"]["code"], "invalid_request_target");
 }
 
 // Тест 8: Trailing slashes
@@ -216,9 +223,9 @@ TEST_F(RouterTest, PathWithMultipleParameters) {
   class MultiParamController : public IController<MultiParamController> {
    public:
     static auto Routes() {
-      return route_dsl::Routes(route_dsl::GET(
-          "/users/{user_id:int}/orders/{order_id:string}",
-          &MultiParamController::GetOrder));
+      return route_dsl::Routes(
+          route_dsl::GET("/users/{user_id:int}/orders/{order_id:string}",
+                         &MultiParamController::GetOrder));
     }
 
     Response GetOrder(const RequestContext& ctx) {
@@ -258,8 +265,9 @@ TEST_F(RouterTest, RouteRegistrationOrder) {
     TestController(bool& h1, bool& h2) : handler1_called_(h1), handler2_called_(h2) {}
 
     static constexpr auto Routes() {
-      return route_dsl::Routes(route_dsl::GET("/users/{id:int}", &TestController::Handler1),
-                               route_dsl::GET("/users/new", &TestController::Handler2));
+      return route_dsl::Routes(
+          route_dsl::GET("/users/{id:int}", &TestController::Handler1),
+          route_dsl::GET("/users/new", &TestController::Handler2));
     }
 
     Response Handler1(const RequestContext&) {
@@ -277,7 +285,8 @@ TEST_F(RouterTest, RouteRegistrationOrder) {
     bool& handler2_called_;
   };
 
-  auto test_controller = std::make_shared<TestController>(handler1_called, handler2_called);
+  auto test_controller =
+      std::make_shared<TestController>(handler1_called, handler2_called);
   test_controller->RegisterRoutes(test_router);
 
   // Проверяем что статический путь "/users/new" не матчится как параметр
@@ -448,6 +457,37 @@ TEST_F(RouterTest, HandlerExceptionReturnsInternalServerError) {
 
   EXPECT_EQ(response.result(), http::status::internal_server_error);
   EXPECT_TRUE(response.keep_alive());
+  const auto error = nlohmann::json::parse(response.body());
+  EXPECT_EQ(error["error"]["code"], "internal_error");
+}
+
+// Тест 17: Ошибки валидации параметров возвращают 400 и стабильный error code
+TEST_F(RouterTest, MissingOrInvalidParameterReturnsBadRequest) {
+  class ParamValidationController : public IController<ParamValidationController> {
+   public:
+    static constexpr auto Routes() {
+      return route_dsl::Routes(
+          route_dsl::GET("/orders/{id:int}", &ParamValidationController::GetById));
+    }
+
+    Response GetById(const RequestContext& ctx) {
+      // Здесь ожидаем параметр с другим именем, чтобы стабильно получить ошибку Required
+      const auto missing = ctx.GetPathParameters().Required<int>("order_id");
+      (void)missing;
+      return Response{http::status::ok, 11};
+    }
+  };
+
+  auto controller = std::make_shared<ParamValidationController>();
+  Router test_router;
+  controller->RegisterRoutes(test_router);
+
+  auto req = CreateRequest(http::verb::get, "/orders/42");
+  auto response = test_router.Route(req);
+
+  EXPECT_EQ(response.result(), http::status::bad_request);
+  const auto error = nlohmann::json::parse(response.body());
+  EXPECT_EQ(error["error"]["code"], "invalid_parameter");
 }
 
 int main(int argc, char** argv) {

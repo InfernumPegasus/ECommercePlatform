@@ -2,22 +2,16 @@
 
 #include <boost/url.hpp>
 #include <iostream>
-#include <string>
+#include <stdexcept>
 
-Response Router::MakeErrorResponse(const Request& req, const http::status status,
-                                   const std::string_view message) {
-  Response res{status, req.version()};
-  res.set(http::field::content_type, "text/plain");
-  res.keep_alive(req.keep_alive());
-  res.body() = std::string(message);
-  res.prepare_payload();
-  return res;
-}
+#include "HttpErrorMapping.hpp"
 
 Response Router::Route(const Request& req) const {
   const auto parsed = boost::urls::parse_origin_form(req.target());
   if (!parsed) {
-    return MakeErrorResponse(req, http::status::bad_request, "Invalid request target");
+    return ErrorResponse(req, HttpError{.status = http::status::bad_request,
+                                        .code = "invalid_request_target",
+                                        .message = "Invalid request target"});
   }
 
   std::cout << "Routing request: " << http::to_string(req.method()) << " "
@@ -30,7 +24,9 @@ Response Router::Route(const Request& req) const {
 
   auto [handler, path_params] = trie_.FindRoute(req.method(), parsed->path());
   if (!handler) {
-    return MakeErrorResponse(req, http::status::not_found, "Route not found");
+    return ErrorResponse(req, HttpError{.status = http::status::not_found,
+                                        .code = "route_not_found",
+                                        .message = "Route not found"});
   }
 
   try {
@@ -38,12 +34,12 @@ Response Router::Route(const Request& req) const {
     return handler(ctx);
   } catch (const std::exception& ex) {
     std::cerr << "[http] handler error: " << ex.what() << "\n";
-    return MakeErrorResponse(req, http::status::internal_server_error,
-                             "Internal server error");
+    return ErrorResponse(req, MapExceptionToHttpError(ex));
   } catch (...) {
     std::cerr << "[http] handler error: unknown exception\n";
-    return MakeErrorResponse(req, http::status::internal_server_error,
-                             "Internal server error");
+    return ErrorResponse(req, HttpError{.status = http::status::internal_server_error,
+                                        .code = "internal_error",
+                                        .message = "Internal server error"});
   }
 }
 

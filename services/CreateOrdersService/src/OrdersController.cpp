@@ -61,8 +61,11 @@ Response OrdersController::UpdateOrderName(const RequestContext& ctx) {
 
   auto body = nlohmann::json::parse(ctx.GetRequest().body(), nullptr, false);
   if (!body.is_object() || !body.contains("name") || !body["name"].is_string()) {
-    return JsonResponse(ctx.GetRequest(), http::status::bad_request,
-                        {{"error", "field 'name' is required and must be string"}});
+    return ErrorResponse(
+        ctx.GetRequest(),
+        HttpError{.status = http::status::bad_request,
+                  .code = "invalid_request_body",
+                  .message = "field 'name' is required and must be string"});
   }
 
   return JsonResponse(

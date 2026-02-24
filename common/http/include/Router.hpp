@@ -3,7 +3,9 @@
 #include <memory>
 #include <string_view>
 
+#include "HttpError.hpp"
 #include "HttpCommon.hpp"
+#include "HttpHelpers.hpp"
 #include "HttpTypes.hpp"
 #include "RouteTrie.hpp"
 
@@ -17,8 +19,11 @@ class Router {
         method, path, [handler, instance](const RequestContext& ctx) -> Response {
           const auto locked = instance.lock();
           if (!locked) {
-            return MakeErrorResponse(ctx.GetRequest(), http::status::service_unavailable,
-                                     "Controller is unavailable");
+            return ErrorResponse(
+                ctx.GetRequest(),
+                HttpError{.status = http::status::service_unavailable,
+                          .code = "controller_unavailable",
+                          .message = "Controller is unavailable"});
           }
           return ((*locked).*handler)(ctx);
         });
@@ -37,8 +42,5 @@ class Router {
   void PrintAllRoutes() const;
 
  private:
-  static Response MakeErrorResponse(const Request& req, http::status status,
-                                    std::string_view message);
-
   RouteTrie trie_;
 };

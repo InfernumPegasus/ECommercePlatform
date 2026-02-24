@@ -1,12 +1,24 @@
 #pragma once
 
+#include <stdexcept>
+#include <string>
 #include <unordered_map>
 #include <utility>
 
-#include "TypedParams.hpp"
 #include "ValueParser.hpp"
 
 using GeneralParams = std::unordered_map<std::string, std::string>;
+
+class InvalidParameterException final : public std::runtime_error {
+ public:
+  explicit InvalidParameterException(std::string key)
+      : std::runtime_error("Missing or invalid parameter: " + key), key_(std::move(key)) {}
+
+  [[nodiscard]] const std::string& Key() const noexcept { return key_; }
+
+ private:
+  std::string key_;
+};
 
 class TypedParams {
  public:
@@ -25,7 +37,7 @@ class TypedParams {
   T Required(const std::string& key) const {
     const auto value = TryGet<T>(key);
     if (!value) {
-      throw std::runtime_error("Missing or invalid parameter: " + key);
+      throw InvalidParameterException(key);
     }
     return *value;
   }
