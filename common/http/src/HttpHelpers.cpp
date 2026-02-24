@@ -1,11 +1,16 @@
 #include "HttpHelpers.hpp"
 
 Response JsonResponse(const Request& req, http::status status,
-                       const nlohmann::json& body) {
+                      const nlohmann::json& body) {
   Response res{status, req.version()};
   res.set(http::field::content_type, "application/json");
   res.keep_alive(req.keep_alive());
   res.body() = body.dump();
   res.prepare_payload();
   return res;
+}
+
+Response ErrorResponse(const Request& req, const HttpError& error) {
+  return JsonResponse(req, error.status,
+                      {{"error", {{"code", error.code}, {"message", error.message}}}});
 }

@@ -1,20 +1,40 @@
 #include "Session.hpp"
 
 #include <iostream>
-#include <string>
-#include <string_view>
 #include <thread>
 
 namespace {
-Response MakeParserErrorResponse(const Request& req, const http::status status,
-                                 const std::string_view message) {
-  Response res{status, req.version()};
-  res.set(http::field::content_type, "text/plain");
-  res.keep_alive(false);
-  res.body() = std::string(message);
-  res.prepare_payload();
-  return res;
+constexpr int kDefaultHttpVersion = 11;
+
+HttpError MakeParserError(const beast::error_code& ec) {
+  if (ec == http::error::header_limit) {
+    return HttpError{.status = http::status::request_header_fields_too_large,
+                     .code = "header_limit_exceeded",
+                     .message = "Request header fields are too large"};
+  }
+
+  if (ec == http::error::body_limit) {
+    return HttpError{.status = http::status::payload_too_large,
+                     .code = "body_limit_exceeded",
+                     .message = "Request body is too large"};
+  }
+
+  return HttpError{.status = http::status::bad_request,
+                   .code = "malformed_http_request",
+                   .message = "Malformed HTTP request"};
 }
+
+void ConfigureParser(http::request_parser<http::string_body>& parser,
+                     const HttpServerConfig& config, std::size_t handled_requests,
+                     beast::tcp_stream& stream) {
+  parser.header_limit(config.header_limit_bytes);
+  parser.body_limit(config.body_limit_bytes);
+
+  const auto timeout =
+      handled_requests == 0 ? config.first_read_timeout : config.keep_alive_timeout;
+  stream.expires_after(timeout);
+}
+
 }  // namespace
 
 Session::Session(tcp::socket socket, const Router& router, const HttpServerConfig& config,
@@ -34,54 +54,46 @@ void Session::DoRead() {
   auto self = shared_from_this();
 
   parser_.emplace();
-  parser_->header_limit(config_.header_limit_bytes);
-  parser_->body_limit(config_.body_limit_bytes);
-
-  const auto timeout =
-      requests_handled_ == 0 ? config_.first_read_timeout : config_.keep_alive_timeout;
-  stream_.expires_after(timeout);
+  ConfigureParser(*parser_, config_, requests_handled_, stream_);
 
   http::async_read(
       stream_, buffer_, *parser_,
       net::bind_executor(strand_, [this, self](const beast::error_code& ec, std::size_t) {
-        if (ec == beast::error::timeout) {
-          std::cout << "[http] client idle timeout, closing connection\n";
-          Close();
-          return;
-        }
-        if (ec == http::error::end_of_stream) {
-          Close();
-          return;
-        }
         if (ec) {
-          Request req;
-          req.version(11);
-
-          if (ec == http::error::header_limit) {
-            DoWrite(MakeParserErrorResponse(req,
-                                            http::status::request_header_fields_too_large,
-                                            "Request header fields are too large"));
-            return;
-          }
-
-          if (ec == http::error::body_limit) {
-            DoWrite(MakeParserErrorResponse(req, http::status::payload_too_large,
-                                            "Request body is too large"));
-            return;
-          }
-
-          DoWrite(MakeParserErrorResponse(req, http::status::bad_request,
-                                          "Malformed HTTP request"));
+          HandleReadError(ec);
           return;
         }
 
-        req_ = parser_->release();
-        ++requests_handled_;
-        std::cout << "[http] handling request on thread " << std::this_thread::get_id()
-                  << " " << http::to_string(req_.method()) << " " << req_.target()
-                  << "\n";
-        DoWrite(router_.Route(req_));
+        HandleReadSuccess();
       }));
+}
+
+void Session::HandleReadError(const beast::error_code& ec) {
+  if (ec == beast::error::timeout) {
+    std::cout << "[http] client idle timeout, closing connection\n";
+    Close();
+    return;
+  }
+
+  if (ec == http::error::end_of_stream) {
+    Close();
+    return;
+  }
+
+  Request req;
+  req.version(kDefaultHttpVersion);
+  auto error = MakeParserError(ec);
+  auto res = ErrorResponse(req, error);
+  res.keep_alive(false);
+  DoWrite(std::move(res));
+}
+
+void Session::HandleReadSuccess() {
+  req_ = parser_->release();
+  ++requests_handled_;
+  std::cout << "[http] handling request on thread " << std::this_thread::get_id() << " "
+            << http::to_string(req_.method()) << " " << req_.target() << "\n";
+  DoWrite(router_.Route(req_));
 }
 
 void Session::DoWrite(Response res) {

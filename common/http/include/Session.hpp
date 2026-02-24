@@ -27,6 +27,8 @@ class Session : public std::enable_shared_from_this<Session> {
   void DoRead();
   void DoWrite(Response res);
   void Close();
+  void HandleReadError(const beast::error_code& ec);
+  void HandleReadSuccess();
 
   beast::tcp_stream stream_;
   net::strand<net::any_io_executor> strand_;
