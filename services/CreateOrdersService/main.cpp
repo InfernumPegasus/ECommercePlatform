@@ -1,6 +1,9 @@
 #include <boost/asio/io_context.hpp>
+#include <boost/asio/signal_set.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/url.hpp>
 #include <chrono>
+#include <csignal>
 #include <iostream>
 #include <memory>
 #include <pqxx/pqxx>
@@ -80,6 +83,51 @@ int main() {
     };
 
     auto listener = std::make_shared<Listener>(ioc, endpoint, router, kServerConfig);
+    listener->Start();
+    net::steady_timer shutdownTimer{ioc};
+    bool shutdownStarted = false;
+    constexpr auto kGracefulShutdownTimeout = std::chrono::seconds(10);
+
+    listener->SetOnShutdownComplete([&shutdownTimer, &ioc]() {
+      shutdownTimer.cancel();
+      std::cout << "[http] graceful shutdown complete, stopping io_context\n";
+      ioc.stop();
+    });
+
+    auto beginShutdown = [listener, &shutdownTimer, &shutdownStarted, &ioc,
+                          kGracefulShutdownTimeout]() {
+      if (shutdownStarted) {
+        return;
+      }
+      shutdownStarted = true;
+
+      std::cout << "[http] shutdown requested, draining active sessions\n";
+      listener->RequestShutdown();
+
+      shutdownTimer.expires_after(kGracefulShutdownTimeout);
+      shutdownTimer.async_wait([listener, &ioc](const boost::system::error_code& ec) {
+        if (ec == net::error::operation_aborted) {
+          return;
+        }
+        if (ec) {
+          std::cout << "[http] shutdown timer error: " << ec.message() << "\n";
+          return;
+        }
+
+        std::cout << "[http] graceful shutdown timeout reached, forcing close\n";
+        listener->ForceShutdown();
+        ioc.stop();
+      });
+    };
+
+    net::signal_set signals(ioc, SIGINT, SIGTERM);
+    signals.async_wait([beginShutdown](const boost::system::error_code& ec, int signal) {
+      if (ec) {
+        return;
+      }
+      std::cout << "[http] received signal " << signal << "\n";
+      beginShutdown();
+    });
 
     std::println(std::cout, "Listening on http://{}:{}\n", endpoint.address().to_string(),
                  endpoint.port());
