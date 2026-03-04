@@ -38,7 +38,7 @@ jobs:
         run: conan profile detect --force
 
       - name: Install dependencies (Conan)
-        run: conan install . -s build_type=Debug -of build -b missing
+        run: conan install . -s build_type=Debug -b missing
 
       - name: Verify prerequisites
         run: |
