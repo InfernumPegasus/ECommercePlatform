@@ -34,6 +34,7 @@ class TestServer {
     router_.AddRoute(http::verb::get, "/ping", &TestController::Ping, controller_);
     listener_ =
         std::make_shared<Listener>(ioc_, tcp::endpoint{tcp::v4(), 0}, router_, config);
+    listener_->Start();
     port_ = listener_->LocalEndpoint().port();
     thread_ = std::thread([this]() { ioc_.run(); });
   }

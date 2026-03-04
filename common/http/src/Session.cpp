@@ -3,6 +3,9 @@
 #include <iostream>
 #include <thread>
 
+#include "HttpError.hpp"
+#include "HttpHelpers.hpp"
+
 namespace {
 constexpr int kDefaultHttpVersion = 11;
 
@@ -25,7 +28,7 @@ HttpError MakeParserError(const beast::error_code& ec) {
 }
 
 void ConfigureParser(http::request_parser<http::string_body>& parser,
-                     const HttpServerConfig& config, std::size_t handled_requests,
+                     const SessionConfig& config, std::size_t handled_requests,
                      beast::tcp_stream& stream) {
   parser.header_limit(config.header_limit_bytes);
   parser.body_limit(config.body_limit_bytes);
@@ -37,17 +40,28 @@ void ConfigureParser(http::request_parser<http::string_body>& parser,
 
 }  // namespace
 
-Session::Session(tcp::socket socket, const Router& router, const HttpServerConfig& config,
-                 const std::shared_ptr<std::atomic<std::size_t>>& active_connections)
+Session::Session(tcp::socket socket, RequestHandler handler, SessionConfig config,
+                 OnClose on_close)
     : stream_(std::move(socket)),
       strand_(net::make_strand(stream_.get_executor())),
-      router_(router),
+      handler_(std::move(handler)),
       config_(config),
-      active_connections_(active_connections) {}
+      on_close_(std::move(on_close)) {}
 
 void Session::Run() {
-  auto self = shared_from_this();
-  net::dispatch(strand_, [this, self]() { DoRead(); });
+  net::dispatch(strand_, [self = shared_from_this(), this]() { DoRead(); });
+}
+
+void Session::RequestClose() {
+  net::dispatch(strand_, [self = shared_from_this(), this]() {
+    if (state_ == State::kOpen) {
+      state_ = State::kClosing;
+    }
+  });
+}
+
+void Session::ForceClose() {
+  net::dispatch(strand_, [self = shared_from_this(), this]() { Close(true); });
 }
 
 void Session::DoRead() {
@@ -71,12 +85,12 @@ void Session::DoRead() {
 void Session::HandleReadError(const beast::error_code& ec) {
   if (ec == beast::error::timeout) {
     std::cout << "[http] client idle timeout, closing connection\n";
-    Close();
+    Close(false);
     return;
   }
 
   if (ec == http::error::end_of_stream) {
-    Close();
+    Close(false);
     return;
   }
 
@@ -89,17 +103,21 @@ void Session::HandleReadError(const beast::error_code& ec) {
 }
 
 void Session::HandleReadSuccess() {
-  req_ = parser_->release();
+  auto req = parser_->release();
   ++requests_handled_;
   std::cout << "[http] handling request on thread " << std::this_thread::get_id() << " "
-            << http::to_string(req_.method()) << " " << req_.target() << "\n";
-  DoWrite(router_.Route(req_));
+            << http::to_string(req.method()) << " " << req.target() << "\n";
+  DoWrite(handler_(req));
 }
 
 void Session::DoWrite(Response res) {
   auto self = shared_from_this();
 
   if (requests_handled_ >= config_.max_requests_per_connection) {
+    RequestClose();
+  }
+
+  if (state_ == State::kClosing) {
     res.keep_alive(false);
   }
 
@@ -110,28 +128,27 @@ void Session::DoWrite(Response res) {
       net::bind_executor(strand_,
                          [this, self, sp](const beast::error_code& ec, std::size_t) {
                            if (ec) {
-                             Close();
+                             Close(false);
                              return;
                            }
 
                            const bool close = !sp->keep_alive();
 
                            buffer_.consume(buffer_.size());
-                           req_ = {};
 
                            if (close) {
-                             Close();
+                             Close(false);
                            } else {
                              DoRead();
                            }
                          }));
 }
 
-void Session::Close() {
-  if (closed_) {
+void Session::Close(bool force) {
+  if (state_ == State::kClosed) {
     return;
   }
-  closed_ = true;
+  state_ = State::kClosed;
 
   beast::error_code ep_ec;
   const auto remote = stream_.socket().remote_endpoint(ep_ec);
@@ -144,9 +161,15 @@ void Session::Close() {
 
   beast::error_code ec;
 
-  stream_.socket().shutdown(tcp::socket::shutdown_send, ec);
+  if (force) {
+    stream_.socket().cancel(ec);
+    stream_.socket().shutdown(tcp::socket::shutdown_both, ec);
+    stream_.socket().close(ec);
+  } else {
+    stream_.socket().shutdown(tcp::socket::shutdown_send, ec);
+  }
 
-  if (active_connections_) {
-    active_connections_->fetch_sub(1, std::memory_order_relaxed);
+  if (on_close_) {
+    on_close_(shared_from_this());
   }
 }
