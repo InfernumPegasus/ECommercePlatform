@@ -40,6 +40,12 @@ jobs:
       - name: Install dependencies (Conan)
         run: conan install . -s build_type=Debug -of build/Debug -b missing
 
+      - name: Verify Conan toolchain
+        run: |
+          echo "Ninja: $(which ninja || true)"
+          ls -la build/Debug/generators || true
+          test -f build/Debug/generators/conan_toolchain.cmake
+
       - name: Configure (CMake)
         run: cmake --preset debug
 
