@@ -1,6 +1,5 @@
 #pragma once
 
-#include <boost/beast/http.hpp>
 #include <boost/container/flat_map.hpp>
 #include <functional>
 #include <memory>
@@ -12,8 +11,6 @@
 #include "HttpTypes.hpp"
 #include "PathParamType.hpp"
 #include "RequestContext.hpp"
-
-namespace http = boost::beast::http;
 
 class RouteTrie {
  public:
@@ -34,7 +31,7 @@ class RouteTrie {
 
   struct TransparentStringHash {
     using is_transparent = void;
-    
+
     std::size_t operator()(const std::string_view value) const noexcept {
       return std::hash<std::string_view>{}(value);
     }
@@ -47,7 +44,8 @@ class RouteTrie {
   struct TransparentStringEqual {
     using is_transparent = void;
 
-    bool operator()(const std::string_view lhs, const std::string_view rhs) const noexcept {
+    bool operator()(const std::string_view lhs,
+                    const std::string_view rhs) const noexcept {
       return lhs == rhs;
     }
 

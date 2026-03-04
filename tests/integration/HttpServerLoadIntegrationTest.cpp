@@ -39,6 +39,7 @@ class TestServer {
     try {
       listener_ =
           std::make_shared<Listener>(ioc_, tcp::endpoint{tcp::v4(), 0}, router_, config);
+      listener_->Start();
       port_ = listener_->LocalEndpoint().port();
       for (std::size_t i = 0; i < config.io_threads; ++i) {
         threads_.emplace_back([this]() { ioc_.run(); });

@@ -26,8 +26,8 @@ std::string RouteTrie::NormalizePathOwned(const std::string_view path) {
 std::vector<std::string_view> RouteTrie::SplitPathView(const std::string_view path) {
   std::vector<std::string_view> segments;
   if (!path.empty()) {
-    segments.reserve(static_cast<std::size_t>(
-        std::count(path.begin(), path.end(), '/') + 1));
+    segments.reserve(
+        static_cast<std::size_t>(std::count(path.begin(), path.end(), '/') + 1));
   }
 
   std::size_t segment_start = 0;
@@ -193,19 +193,19 @@ RouteTrie::FindRoute(const http::verb method, const std::string_view path) const
 std::vector<std::string> RouteTrie::GetAllRoutes() const {
   std::vector<std::string> routes;
 
-  std::function<void(const TrieNode*, std::string)> walk = [&](const TrieNode* node,
-                                                               const std::string& path) {
+  auto walk = [&routes](this auto&& self, const TrieNode* node,
+                        const std::string& path) -> void {
     for (const auto verb : node->handlers | std::views::keys) {
       routes.push_back(std::string(http::to_string(verb)) + " /" + path);
     }
 
     for (const auto& [seg, child] : node->static_children) {
-      walk(child.get(), path.empty() ? seg : path + "/" + seg);
+      self(child.get(), path.empty() ? seg : path + "/" + seg);
     }
 
     for (const auto& [key, child] : node->param_children) {
       const std::string seg = "{" + key.name + ":" + std::string(key.type->name) + "}";
-      walk(child.get(), path.empty() ? seg : path + "/" + seg);
+      self(child.get(), path.empty() ? seg : path + "/" + seg);
     }
   };
 
