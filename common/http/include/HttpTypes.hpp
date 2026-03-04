@@ -1,8 +1,6 @@
 #pragma once
 
-#include <boost/beast/http.hpp>
-
-namespace http = boost::beast::http;
+#include "HttpNet.hpp"
 
 using Request = http::request<http::string_body>;
 using Response = http::response<http::string_body>;

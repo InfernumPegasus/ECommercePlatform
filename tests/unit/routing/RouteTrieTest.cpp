@@ -25,7 +25,7 @@ TEST_F(RouteTrieTest, AddStaticRoute) {
     return Response{http::status::ok, 11};
   };
 
-  trie_->AddRoute(http::verb::get, "/users", handler);
+  trie_->AddRoute(http::verb::get, "/users", std::move(handler));
 
   auto [found_handler, params] = trie_->FindRoute(http::verb::get, "/users");
 
@@ -49,7 +49,7 @@ TEST_F(RouteTrieTest, AddRouteWithIntParameter) {
     return Response{http::status::ok, 11};
   };
 
-  trie_->AddRoute(http::verb::get, "/users/{id:int}", handler);
+  trie_->AddRoute(http::verb::get, "/users/{id:int}", std::move(handler));
 
   auto [found_handler, params] = trie_->FindRoute(http::verb::get, "/users/123");
 
@@ -64,7 +64,7 @@ TEST_F(RouteTrieTest, AddRouteWithStringParameter) {
     return Response{http::status::ok, 11};
   };
 
-  trie_->AddRoute(http::verb::get, "/profile/{username:string}", handler);
+  trie_->AddRoute(http::verb::get, "/profile/{username:string}", std::move(handler));
 
   auto [found_handler, params] = trie_->FindRoute(http::verb::get, "/profile/john_doe");
 
@@ -84,8 +84,8 @@ TEST_F(RouteTrieTest, ParameterPriority) {
   };
 
   // Добавляем два пересекающихся маршрута
-  trie_->AddRoute(http::verb::get, "/data/{id:int}", int_handler);
-  trie_->AddRoute(http::verb::get, "/data/{name:string}", string_handler);
+  trie_->AddRoute(http::verb::get, "/data/{id:int}", std::move(int_handler));
+  trie_->AddRoute(http::verb::get, "/data/{name:string}", std::move(string_handler));
 
   // Число должно матчиться на int параметр
   auto [handler1, params1] = trie_->FindRoute(http::verb::get, "/data/42");
@@ -95,8 +95,12 @@ TEST_F(RouteTrieTest, ParameterPriority) {
   auto [handler2, params2] = trie_->FindRoute(http::verb::get, "/data/product_name");
   EXPECT_TRUE(handler2 != nullptr);
 
-  // Проверяем что это разные хендлеры
-  EXPECT_NE(handler1.target_type().hash_code(), handler2.target_type().hash_code());
+  Request req;
+  GeneralParams path_params;
+  GeneralParams query_params;
+  RequestContext ctx(req, std::move(path_params), std::move(query_params));
+  EXPECT_EQ(handler1(ctx).result(), http::status::ok);
+  EXPECT_EQ(handler2(ctx).result(), http::status::created);
 }
 
 // Тест 5: Вложенные маршруты
@@ -105,7 +109,7 @@ TEST_F(RouteTrieTest, NestedRoutes) {
     return Response{http::status::ok, 11};
   };
 
-  trie_->AddRoute(http::verb::get, "/api/v1/users/{id:int}/orders", handler);
+  trie_->AddRoute(http::verb::get, "/api/v1/users/{id:int}/orders", std::move(handler));
 
   auto [found_handler, params] =
       trie_->FindRoute(http::verb::get, "/api/v1/users/456/orders");
@@ -125,8 +129,8 @@ TEST_F(RouteTrieTest, DifferentHttpMethods) {
     return Response{http::status::created, 11};
   };
 
-  trie_->AddRoute(http::verb::get, "/users", get_handler);
-  trie_->AddRoute(http::verb::post, "/users", post_handler);
+  trie_->AddRoute(http::verb::get, "/users", std::move(get_handler));
+  trie_->AddRoute(http::verb::post, "/users", std::move(post_handler));
 
   // GET должен вызвать get_handler
   auto [get_found, get_params] = trie_->FindRoute(http::verb::get, "/users");
@@ -147,7 +151,7 @@ TEST_F(RouteTrieTest, RouteNotFound) {
     return Response{http::status::ok, 11};
   };
 
-  trie_->AddRoute(http::verb::get, "/users", handler);
+  trie_->AddRoute(http::verb::get, "/users", std::move(handler));
 
   auto [found_handler, params] = trie_->FindRoute(http::verb::get, "/nonexistent");
 
@@ -161,7 +165,7 @@ TEST_F(RouteTrieTest, WrongMethodForPath) {
     return Response{http::status::ok, 11};
   };
 
-  trie_->AddRoute(http::verb::get, "/users", handler);
+  trie_->AddRoute(http::verb::get, "/users", std::move(handler));
 
   // POST там, где только GET
   auto [found_handler, params] = trie_->FindRoute(http::verb::post, "/users");
@@ -175,7 +179,7 @@ TEST_F(RouteTrieTest, FloatParameter) {
     return Response{http::status::ok, 11};
   };
 
-  trie_->AddRoute(http::verb::get, "/price/{amount:float}", handler);
+  trie_->AddRoute(http::verb::get, "/price/{amount:float}", std::move(handler));
 
   // Должен матчиться float
   auto [found_handler, params] = trie_->FindRoute(http::verb::get, "/price/99.99");
@@ -190,14 +194,14 @@ TEST_F(RouteTrieTest, FloatParameter) {
 
 // Тест 10: Получение всех маршрутов
 TEST_F(RouteTrieTest, GetAllRoutes) {
-  RouteTrie::Handler handler = [](const RequestContext&) {
-    return Response{http::status::ok, 11};
-  };
-
-  trie_->AddRoute(http::verb::get, "/users", handler);
-  trie_->AddRoute(http::verb::post, "/users", handler);
-  trie_->AddRoute(http::verb::get, "/users/{id:int}", handler);
-  trie_->AddRoute(http::verb::get, "/orders/{order_id:string}/items", handler);
+  trie_->AddRoute(http::verb::get, "/users",
+                  [](const RequestContext&) { return Response{http::status::ok, 11}; });
+  trie_->AddRoute(http::verb::post, "/users",
+                  [](const RequestContext&) { return Response{http::status::ok, 11}; });
+  trie_->AddRoute(http::verb::get, "/users/{id:int}",
+                  [](const RequestContext&) { return Response{http::status::ok, 11}; });
+  trie_->AddRoute(http::verb::get, "/orders/{order_id:string}/items",
+                  [](const RequestContext&) { return Response{http::status::ok, 11}; });
 
   auto routes = trie_->GetAllRoutes();
 
@@ -214,14 +218,13 @@ TEST_F(RouteTrieTest, GetAllRoutes) {
 
 // Тест 11: Специальные символы в статических путях
 TEST_F(RouteTrieTest, SpecialCharactersInStaticPath) {
-  RouteTrie::Handler handler = [](const RequestContext&) {
-    return Response{http::status::ok, 11};
-  };
-
   // Query параметры не должны быть частью пути маршрута
-  trie_->AddRoute(http::verb::get, "/api/v1.0/users", handler);
-  trie_->AddRoute(http::verb::get, "/user-name/profile", handler);
-  trie_->AddRoute(http::verb::get, "/search", handler);
+  trie_->AddRoute(http::verb::get, "/api/v1.0/users",
+                  [](const RequestContext&) { return Response{http::status::ok, 11}; });
+  trie_->AddRoute(http::verb::get, "/user-name/profile",
+                  [](const RequestContext&) { return Response{http::status::ok, 11}; });
+  trie_->AddRoute(http::verb::get, "/search",
+                  [](const RequestContext&) { return Response{http::status::ok, 11}; });
 
   auto [found1, params1] = trie_->FindRoute(http::verb::get, "/api/v1.0/users");
   EXPECT_TRUE(found1 != nullptr);
@@ -244,8 +247,8 @@ TEST_F(RouteTrieTest, StaticVsParametricConflict) {
     return Response{http::status::created, 11};
   };
 
-  trie_->AddRoute(http::verb::get, "/users/new", static_handler);
-  trie_->AddRoute(http::verb::get, "/users/{id:int}", param_handler);
+  trie_->AddRoute(http::verb::get, "/users/new", std::move(static_handler));
+  trie_->AddRoute(http::verb::get, "/users/{id:int}", std::move(param_handler));
 
   // Должен найти статический маршрут
   auto [handler1, params1] = trie_->FindRoute(http::verb::get, "/users/new");
@@ -264,7 +267,7 @@ TEST_F(RouteTrieTest, TrailingSlashes) {
     return Response{http::status::ok, 11};
   };
 
-  trie_->AddRoute(http::verb::get, "/users", handler);
+  trie_->AddRoute(http::verb::get, "/users", std::move(handler));
 
   // Оба варианта должны работать (нормализация путей)
   auto [found1, params1] = trie_->FindRoute(http::verb::get, "/users");
@@ -276,12 +279,10 @@ TEST_F(RouteTrieTest, TrailingSlashes) {
 
 // Тест 14: Пустой путь
 TEST_F(RouteTrieTest, EmptyPath) {
-  RouteTrie::Handler handler = [](const RequestContext&) {
-    return Response{http::status::ok, 11};
-  };
-
-  trie_->AddRoute(http::verb::get, "", handler);
-  trie_->AddRoute(http::verb::get, "/", handler);
+  trie_->AddRoute(http::verb::get, "",
+                  [](const RequestContext&) { return Response{http::status::ok, 11}; });
+  trie_->AddRoute(http::verb::get, "/",
+                  [](const RequestContext&) { return Response{http::status::ok, 11}; });
 
   auto [found1, params1] = trie_->FindRoute(http::verb::get, "");
   auto [found2, params2] = trie_->FindRoute(http::verb::get, "/");
@@ -297,7 +298,7 @@ TEST_F(RouteTrieTest, MultipleParameters) {
   };
 
   trie_->AddRoute(http::verb::get, "/users/{user_id:int}/orders/{order_id:string}",
-                  handler);
+                  std::move(handler));
 
   auto [found_handler, params] =
       trie_->FindRoute(http::verb::get, "/users/123/orders/abc-xyz");
@@ -315,8 +316,9 @@ TEST_F(RouteTrieTest, InvalidParameterType) {
   };
 
   // Неизвестный тип должен бросить исключение
-  EXPECT_THROW(trie_->AddRoute(http::verb::get, "/users/{id:unknown_type}", handler),
-               std::runtime_error);
+  EXPECT_THROW(
+      trie_->AddRoute(http::verb::get, "/users/{id:unknown_type}", std::move(handler)),
+      std::runtime_error);
 }
 
 // Тест 17: Конфликт одинаковых matcher с разными именами параметров
@@ -325,9 +327,11 @@ TEST_F(RouteTrieTest, AmbiguousParameterNamesWithSameTypeThrows) {
     return Response{http::status::ok, 11};
   };
 
-  trie_->AddRoute(http::verb::get, "/users/{id:int}", handler);
+  trie_->AddRoute(http::verb::get, "/users/{id:int}", std::move(handler));
 
-  EXPECT_THROW(trie_->AddRoute(http::verb::get, "/users/{user_id:int}", handler),
+  EXPECT_THROW(trie_->AddRoute(
+                   http::verb::get, "/users/{user_id:int}",
+                   [](const RequestContext&) { return Response{http::status::ok, 11}; }),
                std::runtime_error);
 }
 

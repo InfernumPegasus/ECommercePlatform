@@ -1,43 +1,46 @@
 #pragma once
 
-#include <atomic>
-#include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/beast/core.hpp>
-#include <boost/beast/http.hpp>
+#include <functional>
 #include <memory>
 #include <optional>
 
+#include "HttpNet.hpp"
 #include "HttpServerConfig.hpp"
-#include "Router.hpp"
+#include "HttpTypes.hpp"
 
-namespace net = boost::asio;
-namespace beast = boost::beast;
-using tcp = net::ip::tcp;
-namespace http = beast::http;
+class Session;
+
+using RequestHandler = std::move_only_function<Response(const Request&)>;
+using OnClose = std::move_only_function<void(std::shared_ptr<Session>)>;
 
 class Session : public std::enable_shared_from_this<Session> {
  public:
-  Session(tcp::socket socket, const Router& router, const HttpServerConfig& config,
-          const std::shared_ptr<std::atomic<std::size_t>>& active_connections);
+  Session(tcp::socket socket, RequestHandler handler, SessionConfig config,
+          OnClose on_close);
 
   void Run();
+  void RequestClose();
+  void ForceClose();
+
+ private:
+  enum class State : uint8_t { kOpen, kClosing, kClosed };
 
  private:
   void DoRead();
   void DoWrite(Response res);
-  void Close();
+  void Close(bool force);
   void HandleReadError(const beast::error_code& ec);
   void HandleReadSuccess();
 
   beast::tcp_stream stream_;
   net::strand<net::any_io_executor> strand_;
   beast::flat_buffer buffer_;
-  Request req_;
   std::optional<http::request_parser<http::string_body>> parser_;
-  const Router& router_;
-  const HttpServerConfig& config_;
-  std::shared_ptr<std::atomic<std::size_t>> active_connections_;
+  RequestHandler handler_;
+  SessionConfig config_;
+  OnClose on_close_;
   std::size_t requests_handled_ = 0;
-  bool closed_ = false;
+  State state_{State::kOpen};
 };
