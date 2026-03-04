@@ -38,11 +38,13 @@ jobs:
         run: conan profile detect --force
 
       - name: Install dependencies (Conan)
-        run: conan install . -s build_type=Debug -of build/Debug -b missing
+        run: conan install . -s build_type=Debug -of build -b missing
 
-      - name: Verify Conan toolchain
+      - name: Verify prerequisites
         run: |
-          echo "Ninja: $(which ninja || true)"
+          echo "Ninja: $(command -v ninja || true)"
+          test -x "$(command -v ninja)"
+          ls -la build/Debug || true
           ls -la build/Debug/generators || true
           test -f build/Debug/generators/conan_toolchain.cmake
 
