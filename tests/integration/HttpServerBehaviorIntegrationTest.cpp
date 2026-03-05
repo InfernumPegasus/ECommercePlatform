@@ -31,7 +31,8 @@ class TestServer {
  public:
   explicit TestServer(const HttpServerConfig& config) : ioc_(1) {
     controller_ = std::make_shared<TestController>();
-    router_.AddRoute(http::verb::get, "/ping", &TestController::Ping, controller_);
+    router_ = std::make_shared<Router>();
+    router_->AddRoute(http::verb::get, "/ping", &TestController::Ping, controller_);
     listener_ =
         std::make_shared<Listener>(ioc_, tcp::endpoint{tcp::v4(), 0}, router_, config);
     listener_->Start();
@@ -50,7 +51,7 @@ class TestServer {
 
  private:
   net::io_context ioc_;
-  Router router_;
+  std::shared_ptr<Router> router_;
   std::shared_ptr<TestController> controller_;
   std::shared_ptr<Listener> listener_;
   unsigned short port_ = 0;

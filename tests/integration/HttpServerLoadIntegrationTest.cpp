@@ -34,7 +34,8 @@ class TestServer {
  public:
   explicit TestServer(const HttpServerConfig& config) : ioc_(config.io_threads) {
     controller_ = std::make_shared<LoadController>();
-    router_.AddRoute(http::verb::get, "/ping", &LoadController::Ping, controller_);
+    router_ = std::make_shared<Router>();
+    router_->AddRoute(http::verb::get, "/ping", &LoadController::Ping, controller_);
 
     try {
       listener_ =
@@ -66,7 +67,7 @@ class TestServer {
 
  private:
   net::io_context ioc_;
-  Router router_;
+  std::shared_ptr<Router> router_;
   std::shared_ptr<LoadController> controller_;
   std::shared_ptr<Listener> listener_;
   std::vector<std::thread> threads_;
