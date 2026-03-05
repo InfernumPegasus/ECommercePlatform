@@ -2,14 +2,32 @@
 
 #include <boost/asio/strand.hpp>
 #include <iostream>
+#include <stdexcept>
+
+#include "Router.hpp"
+
+namespace {
+Listener::ListenerHandler MakeRouterHandler(std::shared_ptr<const Router> router) {
+  if (!router) {
+    throw std::invalid_argument("Listener requires non-null Router");
+  }
+
+  return [router = std::move(router)](const Request& req) { return router->Route(req); };
+}
+}  // namespace
 
 Listener::Listener(boost::asio::io_context& ioc, const tcp::endpoint& endpoint,
-                   const Router& router, const HttpServerConfig& config)
-    : ioc_(ioc),
+                   ListenerHandler handler, const HttpServerConfig& config)
+    : callback_executor_(ioc.get_executor()),
       acceptor_(boost::asio::make_strand(ioc)),
       strand_(acceptor_.get_executor()),
-      router_(router),
-      config_(config) {
+      handler_(std::move(handler)),
+      session_config_{.first_read_timeout = config.first_read_timeout,
+                      .keep_alive_timeout = config.keep_alive_timeout,
+                      .header_limit_bytes = config.header_limit_bytes,
+                      .body_limit_bytes = config.body_limit_bytes,
+                      .max_requests_per_connection = config.max_requests_per_connection},
+      max_connections_(config.max_connections) {
   beast::error_code ec;
 
   acceptor_.open(endpoint.protocol(), ec);
@@ -37,6 +55,10 @@ Listener::Listener(boost::asio::io_context& ioc, const tcp::endpoint& endpoint,
     throw std::runtime_error("Failed to start listening: " + ec.message());
   }
 }
+
+Listener::Listener(boost::asio::io_context& ioc, const tcp::endpoint& endpoint,
+                   std::shared_ptr<const Router> router, const HttpServerConfig& config)
+    : Listener(ioc, endpoint, MakeRouterHandler(std::move(router)), config) {}
 
 void Listener::Start() { DoAccept(); }
 
@@ -105,27 +127,14 @@ void Listener::NotifyShutdownCompleteIfDrained() {
   }
 
   auto cb = std::move(on_shutdown_complete_);
-  net::post(ioc_, std::move(cb));
-}
-
-SessionConfig Listener::BuildSessionConfig() const {
-  return SessionConfig{
-      .first_read_timeout = config_.first_read_timeout,
-      .keep_alive_timeout = config_.keep_alive_timeout,
-      .header_limit_bytes = config_.header_limit_bytes,
-      .body_limit_bytes = config_.body_limit_bytes,
-      .max_requests_per_connection = config_.max_requests_per_connection,
-  };
-}
-
-RequestHandler Listener::BuildHandler() const {
-  return [this](const Request& req) { return router_.Route(req); };
+  net::post(callback_executor_, std::move(cb));
 }
 
 std::shared_ptr<Session> Listener::CreateSession(tcp::socket socket) {
   auto on_close = [this](std::shared_ptr<Session> session) { OnSessionClosed(session); };
-  auto session = std::make_shared<Session>(std::move(socket), BuildHandler(),
-                                           BuildSessionConfig(), std::move(on_close));
+  auto session_handler = [this](const Request& req) { return handler_(req); };
+  auto session = std::make_shared<Session>(std::move(socket), std::move(session_handler),
+                                           session_config_, std::move(on_close));
   sessions_.emplace(session);
   return session;
 }
@@ -140,8 +149,8 @@ void Listener::HandleAcceptedSocket(tcp::socket socket) {
     std::cout << "[http] client connected (endpoint unknown)\n";
   }
 
-  if (sessions_.size() >= config_.max_connections) {
-    std::cout << "[http] max connections reached (" << config_.max_connections
+  if (sessions_.size() >= max_connections_) {
+    std::cout << "[http] max connections reached (" << max_connections_
               << "), closing incoming connection\n";
     beast::error_code close_ec;
     socket.shutdown(tcp::socket::shutdown_send, close_ec);
