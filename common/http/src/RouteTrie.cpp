@@ -122,7 +122,11 @@ void RouteTrie::AddPath(const std::vector<std::string>& segments, const http::ve
     }
   }
 
-  current->handlers[method] = std::move(handler);
+  if (current->handlers.contains(method)) {
+    throw std::runtime_error("Duplicate route registration for method/path");
+  }
+
+  current->handlers.emplace(method, std::move(handler));
 }
 
 void RouteTrie::AddRoute(const http::verb method, const std::string_view path,
