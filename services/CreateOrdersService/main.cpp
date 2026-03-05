@@ -65,10 +65,10 @@ int main() {
 
     boost::asio::io_context ioc;
 
-    Router router;
+    auto router = std::make_shared<Router>();
 
     auto orders = std::make_shared<OrdersController>();
-    orders->RegisterRoutes(router);
+    orders->RegisterRoutes(*router);
     orders->PrintAvailableRoutes();
 
     tcp::endpoint endpoint{tcp::v4(), 1234};
