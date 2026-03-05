@@ -281,14 +281,18 @@ TEST_F(RouteTrieTest, TrailingSlashes) {
 TEST_F(RouteTrieTest, EmptyPath) {
   trie_->AddRoute(http::verb::get, "",
                   [](const RequestContext&) { return Response{http::status::ok, 11}; });
-  trie_->AddRoute(http::verb::get, "/",
-                  [](const RequestContext&) { return Response{http::status::ok, 11}; });
 
   auto [found1, params1] = trie_->FindRoute(http::verb::get, "");
   auto [found2, params2] = trie_->FindRoute(http::verb::get, "/");
 
   EXPECT_TRUE(found1 != nullptr);
   EXPECT_TRUE(found2 != nullptr);
+
+  // "/" и "" нормализуются в один и тот же путь, дублирование запрещено
+  EXPECT_THROW(
+      trie_->AddRoute(http::verb::get, "/",
+                      [](const RequestContext&) { return Response{http::status::ok, 11}; }),
+      std::runtime_error);
 }
 
 // Тест 15: Несколько параметров в пути
@@ -333,6 +337,20 @@ TEST_F(RouteTrieTest, AmbiguousParameterNamesWithSameTypeThrows) {
                    http::verb::get, "/users/{user_id:int}",
                    [](const RequestContext&) { return Response{http::status::ok, 11}; }),
                std::runtime_error);
+}
+
+// Тест 18: Дублирование метода на одном и том же пути запрещено
+TEST_F(RouteTrieTest, DuplicateMethodAndPathThrows) {
+  RouteTrie::Handler handler = [](const RequestContext&) {
+    return Response{http::status::ok, 11};
+  };
+
+  trie_->AddRoute(http::verb::get, "/users", std::move(handler));
+
+  EXPECT_THROW(
+      trie_->AddRoute(http::verb::get, "/users",
+                      [](const RequestContext&) { return Response{http::status::ok, 11}; }),
+      std::runtime_error);
 }
 
 int main(int argc, char** argv) {
