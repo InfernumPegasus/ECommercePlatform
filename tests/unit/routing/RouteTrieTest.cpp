@@ -38,7 +38,7 @@ TEST_F(RouteTrieTest, AddStaticRoute) {
   GeneralParams query_params;
   RequestContext ctx(req, std::move(path_params), std::move(query_params));
 
-  auto _ = matched.handler(ctx);
+  auto _ = matched.Invoke(ctx);
   EXPECT_TRUE(handler_called);
 }
 
@@ -98,8 +98,8 @@ TEST_F(RouteTrieTest, ParameterPriority) {
   GeneralParams path_params;
   GeneralParams query_params;
   RequestContext ctx(req, std::move(path_params), std::move(query_params));
-  EXPECT_EQ(match1.AsMatched().handler(ctx).result(), http::status::ok);
-  EXPECT_EQ(match2.AsMatched().handler(ctx).result(), http::status::created);
+  EXPECT_EQ(match1.AsMatched().Invoke(ctx).result(), http::status::ok);
+  EXPECT_EQ(match2.AsMatched().Invoke(ctx).result(), http::status::created);
 }
 
 // Тест 5: Вложенные маршруты
@@ -166,8 +166,8 @@ TEST_F(RouteTrieTest, WrongMethodForPath) {
   // POST там, где только GET
   auto match = trie_->Match(http::verb::post, "/users");
   EXPECT_TRUE(match.IsMethodNotAllowed());
-  EXPECT_TRUE(match.AllowedMethods().test(static_cast<std::size_t>(http::verb::get)));
-  EXPECT_FALSE(match.AllowedMethods().test(static_cast<std::size_t>(http::verb::post)));
+  EXPECT_TRUE(match.AllowsMethod(http::verb::get));
+  EXPECT_FALSE(match.AllowsMethod(http::verb::post));
 }
 
 TEST_F(RouteTrieTest, MethodNotAllowedContainsAllRegisteredMethods) {
@@ -181,11 +181,10 @@ TEST_F(RouteTrieTest, MethodNotAllowedContainsAllRegisteredMethods) {
   const auto match = trie_->Match(http::verb::delete_, "/users");
   ASSERT_TRUE(match.IsMethodNotAllowed());
 
-  const auto& mask = match.AllowedMethods();
-  EXPECT_TRUE(mask.test(static_cast<std::size_t>(http::verb::get)));
-  EXPECT_TRUE(mask.test(static_cast<std::size_t>(http::verb::post)));
-  EXPECT_TRUE(mask.test(static_cast<std::size_t>(http::verb::put)));
-  EXPECT_FALSE(mask.test(static_cast<std::size_t>(http::verb::delete_)));
+  EXPECT_TRUE(match.AllowsMethod(http::verb::get));
+  EXPECT_TRUE(match.AllowsMethod(http::verb::post));
+  EXPECT_TRUE(match.AllowsMethod(http::verb::put));
+  EXPECT_FALSE(match.AllowsMethod(http::verb::delete_));
 }
 
 // Тест 9: Параметр float
@@ -303,10 +302,10 @@ TEST_F(RouteTrieTest, EmptyPath) {
   EXPECT_TRUE(match2.IsMatched());
 
   // "/" и "" нормализуются в один и тот же путь, дублирование запрещено
-  EXPECT_THROW(
-      trie_->AddRoute(http::verb::get, "/",
-                      [](const RequestContext&) { return Response{http::status::ok, 11}; }),
-      std::runtime_error);
+  EXPECT_THROW(trie_->AddRoute(
+                   http::verb::get, "/",
+                   [](const RequestContext&) { return Response{http::status::ok, 11}; }),
+               std::runtime_error);
 }
 
 // Тест 15: Несколько параметров в пути
@@ -360,10 +359,10 @@ TEST_F(RouteTrieTest, DuplicateMethodAndPathThrows) {
 
   trie_->AddRoute(http::verb::get, "/users", std::move(handler));
 
-  EXPECT_THROW(
-      trie_->AddRoute(http::verb::get, "/users",
-                      [](const RequestContext&) { return Response{http::status::ok, 11}; }),
-      std::runtime_error);
+  EXPECT_THROW(trie_->AddRoute(
+                   http::verb::get, "/users",
+                   [](const RequestContext&) { return Response{http::status::ok, 11}; }),
+               std::runtime_error);
 }
 
 int main(int argc, char** argv) {

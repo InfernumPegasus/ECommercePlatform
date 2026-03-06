@@ -1,87 +1,25 @@
 #pragma once
 
-#include <bitset>
 #include <boost/container/flat_map.hpp>
-#include <functional>
 #include <memory>
 #include <string>
 #include <tuple>
 #include <unordered_map>
-#include <variant>
 #include <vector>
 
-#include "HttpTypes.hpp"
 #include "PathParamType.hpp"
-#include "RequestContext.hpp"
+#include "RouteMatch.hpp"
 
 class RouteTrie {
  public:
-  using Handler = std::function<Response(const RequestContext&)>;
-  static constexpr std::size_t kMethodMaskSize = 64;
-  using MethodMask = std::bitset<kMethodMaskSize>;
-
-  struct MatchedRoute {
-    Handler handler;
-    std::unordered_map<std::string, std::string> path_params;
-  };
-
-  struct RouteNotFound {};
-
-  struct MethodNotAllowedRoute {
-    MethodMask allowed_methods;
-  };
-
-  class MatchResult {
-   public:
-    static MatchResult Matched(Handler handler,
-                               std::unordered_map<std::string, std::string> path_params) {
-      return MatchResult(MatchedRoute{.handler = std::move(handler),
-                                      .path_params = std::move(path_params)});
-    }
-
-    static MatchResult NotFound() { return MatchResult(RouteNotFound{}); }
-
-    static MatchResult MethodNotAllowed(MethodMask allowed_methods) {
-      return MatchResult(
-          MethodNotAllowedRoute{.allowed_methods = std::move(allowed_methods)});
-    }
-
-    [[nodiscard]] bool IsMatched() const {
-      return std::holds_alternative<MatchedRoute>(state_);
-    }
-
-    [[nodiscard]] bool IsNotFound() const {
-      return std::holds_alternative<RouteNotFound>(state_);
-    }
-
-    [[nodiscard]] bool IsMethodNotAllowed() const {
-      return std::holds_alternative<MethodNotAllowedRoute>(state_);
-    }
-
-    [[nodiscard]] const MatchedRoute& AsMatched() const {
-      return std::get<MatchedRoute>(state_);
-    }
-
-    [[nodiscard]] MatchedRoute& AsMatched() { return std::get<MatchedRoute>(state_); }
-
-    [[nodiscard]] const MethodMask& AllowedMethods() const {
-      return std::get<MethodNotAllowedRoute>(state_).allowed_methods;
-    }
-
-   private:
-    std::variant<MatchedRoute, RouteNotFound, MethodNotAllowedRoute> state_;
-
-    explicit MatchResult(
-        std::variant<MatchedRoute, RouteNotFound, MethodNotAllowedRoute> state)
-        : state_(std::move(state)) {}
-  };
+  using Handler = RouteHandler;
 
   RouteTrie();
   ~RouteTrie() = default;
 
   void AddRoute(http::verb method, std::string_view path, Handler handler);
 
-  [[nodiscard]] MatchResult Match(http::verb method, std::string_view path) const;
+  [[nodiscard]] RouteMatchResult Match(http::verb method, std::string_view path) const;
 
   [[nodiscard]] std::vector<std::string> GetAllRoutes() const;
 
@@ -133,7 +71,7 @@ class RouteTrie {
     boost::container::flat_map<ParamKey, std::unique_ptr<TrieNode>> param_children;
 
     std::unordered_map<http::verb, Handler> handlers;
-    MethodMask methods_mask;
+    RouteMethodMask methods_mask;
   };
 
   std::unique_ptr<TrieNode> root_;
@@ -148,8 +86,6 @@ class RouteTrie {
 
   void AddPath(const std::vector<std::string>& segments, http::verb method,
                Handler handler);
-
-  static void AddMethodToMask(MethodMask& mask, http::verb method);
 
   [[nodiscard]] std::pair<const TrieNode*, std::unordered_map<std::string, std::string>>
   FindPath(const std::vector<std::string_view>& segments) const;
