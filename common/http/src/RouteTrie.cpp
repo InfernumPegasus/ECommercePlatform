@@ -8,6 +8,13 @@
 
 RouteTrie::RouteTrie() : root_(std::make_unique<TrieNode>()) {}
 
+void RouteTrie::AddMethodToMask(MethodMask& mask, const http::verb method) {
+  const auto idx = static_cast<std::size_t>(method);
+  if (idx < mask.size()) {
+    mask.set(idx);
+  }
+}
+
 std::string_view RouteTrie::NormalizePathView(std::string_view path) {
   if (!path.empty() && path.front() == '/') {
     path.remove_prefix(1);
@@ -127,6 +134,7 @@ void RouteTrie::AddPath(const std::vector<std::string>& segments, const http::ve
   }
 
   current->handlers.emplace(method, std::move(handler));
+  AddMethodToMask(current->methods_mask, method);
 }
 
 void RouteTrie::AddRoute(const http::verb method, const std::string_view path,
@@ -177,21 +185,25 @@ RouteTrie::FindPath(const std::vector<std::string_view>& segments) const {
   return {current, std::move(params)};
 }
 
-std::pair<RouteTrie::Handler, std::unordered_map<std::string, std::string>>
-RouteTrie::FindRoute(const http::verb method, const std::string_view path) const {
+RouteTrie::MatchResult RouteTrie::Match(const http::verb method,
+                                        const std::string_view path) const {
   const auto normalized = NormalizePathView(path);
   const auto segments = SplitPathView(normalized);
 
   auto [node, params] = FindPath(segments);
   if (!node) {
-    return {nullptr, {}};
+    return MatchResult::NotFound();
   }
 
   if (const auto it = node->handlers.find(method); it != node->handlers.end()) {
-    return {it->second, std::move(params)};
+    return MatchResult::Matched(it->second, std::move(params));
   }
 
-  return {nullptr, {}};
+  if (node->handlers.empty()) {
+    return MatchResult::NotFound();
+  }
+
+  return MatchResult::MethodNotAllowed(node->methods_mask);
 }
 
 std::vector<std::string> RouteTrie::GetAllRoutes() const {
