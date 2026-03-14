@@ -89,4 +89,4 @@ jobs:
         run: ctest --test-dir build/Debug --output-on-failure
 
       - name: ccache stats
-        run: ccache --show-stats
+        run: ccache --show-stats --verbose
