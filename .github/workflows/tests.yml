@@ -46,13 +46,6 @@ jobs:
           restore-keys: |
             ccache-${{ runner.os }}-gcc14-
 
-      - name: Enable ccache for GCC
-        run: |
-          sudo update-alternatives --install /usr/lib/ccache/gcc gcc /usr/lib/ccache/gcc 100
-          sudo update-alternatives --install /usr/lib/ccache/g++ g++ /usr/lib/ccache/g++ 100
-          which gcc
-          which g++
-
       - name: Cache Conan packages
         uses: actions/cache@v4
         with:
@@ -69,6 +62,11 @@ jobs:
 
       - name: Configure Conan
         run: conan profile detect --force
+
+      - name: Enable ccache for builds
+        run: |
+          echo "CC=ccache gcc-14" >> $GITHUB_ENV
+          echo "CXX=ccache g++-14" >> $GITHUB_ENV
 
       - name: Install dependencies (Conan)
         run: conan install . -s build_type=Debug -b missing
