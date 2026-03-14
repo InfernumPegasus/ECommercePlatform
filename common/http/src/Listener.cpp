@@ -6,8 +6,6 @@
 
 #include "Router.hpp"
 
-inline int unused_test_function() { return 42; }
-
 namespace {
 Listener::ListenerHandler MakeRouterHandler(std::shared_ptr<const Router> router) {
   if (!router) {
