@@ -22,16 +22,26 @@ Response Router::Route(const Request& req) const {
     query.emplace(p.key, p.value);
   }
 
-  auto [handler, path_params] = trie_.FindRoute(req.method(), parsed->path());
-  if (!handler) {
+  auto match = trie_.Match(req.method(), parsed->path());
+
+  if (match.IsNotFound()) {
     return ErrorResponse(req, HttpError{.status = http::status::not_found,
                                         .code = "route_not_found",
                                         .message = "Route not found"});
   }
 
+  if (match.IsMethodNotAllowed()) {
+    auto res = ErrorResponse(req, HttpError{.status = http::status::method_not_allowed,
+                                            .code = "method_not_allowed",
+                                            .message = "Method not allowed"});
+    res.set(http::field::allow, MethodMaskToAllowHeader(match.AllowedMethods()));
+    return res;
+  }
+
   try {
-    RequestContext ctx(req, std::move(path_params), std::move(query));
-    return handler(ctx);
+    auto& matched = match.AsMatched();
+    RequestContext ctx(req, std::move(matched.path_params), std::move(query));
+    return matched.Invoke(ctx);
   } catch (const std::exception& ex) {
     std::cerr << "[http] handler error: " << ex.what() << "\n";
     return ErrorResponse(req, MapExceptionToHttpError(ex));

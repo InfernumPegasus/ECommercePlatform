@@ -1,28 +1,25 @@
 #pragma once
 
 #include <boost/container/flat_map.hpp>
-#include <functional>
 #include <memory>
 #include <string>
 #include <tuple>
 #include <unordered_map>
 #include <vector>
 
-#include "HttpTypes.hpp"
 #include "PathParamType.hpp"
-#include "RequestContext.hpp"
+#include "RouteMatch.hpp"
 
 class RouteTrie {
  public:
-  using Handler = std::function<Response(const RequestContext&)>;
+  using Handler = RouteHandler;
 
   RouteTrie();
   ~RouteTrie() = default;
 
   void AddRoute(http::verb method, std::string_view path, Handler handler);
 
-  [[nodiscard]] std::pair<Handler, std::unordered_map<std::string, std::string>>
-  FindRoute(http::verb method, std::string_view path) const;
+  [[nodiscard]] RouteMatchResult Match(http::verb method, std::string_view path) const;
 
   [[nodiscard]] std::vector<std::string> GetAllRoutes() const;
 
@@ -74,6 +71,7 @@ class RouteTrie {
     boost::container::flat_map<ParamKey, std::unique_ptr<TrieNode>> param_children;
 
     std::unordered_map<http::verb, Handler> handlers;
+    RouteMethodMask methods_mask;
   };
 
   std::unique_ptr<TrieNode> root_;

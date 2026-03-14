@@ -160,9 +160,10 @@ TEST_F(RouterTest, RouteNotFound) {
   auto req2 = CreateRequest(http::verb::patch, "/api/users");
   auto response2 = router_->Route(req2);
 
-  EXPECT_EQ(response2.result(), http::status::not_found);
+  EXPECT_EQ(response2.result(), http::status::method_not_allowed);
+  EXPECT_EQ(response2[http::field::allow], "GET, POST");
   const auto error2 = nlohmann::json::parse(response2.body());
-  EXPECT_EQ(error2["error"]["code"], "route_not_found");
+  EXPECT_EQ(error2["error"]["code"], "method_not_allowed");
 }
 
 // Тест 5: Query параметры передаются
